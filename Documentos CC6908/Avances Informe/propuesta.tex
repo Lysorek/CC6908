@@ -1,0 +1,161 @@
+\documentclass[guia]{upropuesta}
+
+\title{El Título de mi Tema}
+
+\author{Juan Peréz}
+\guia{Juana Peréz, José Peréz}
+\date{20XX}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+\usepackage[fixlanguage]{babelbib}
+\usepackage{url}
+
+\graphicspath{{imagenes/}}
+
+\begin{document}
+
+\maketitle
+
+\begin{pauta}
+Se debe quitar todas las guías (estas cajas rosas) antes de entregar el documento.
+
+En la primera línea del \TeX: 
+
+\begin{verbatim}
+\documentclass[guia]{upropuesta}
+\end{verbatim}
+
+Quitar la opción \texttt{guia}:
+
+\begin{verbatim}
+\documentclass{upropuesta}
+\end{verbatim}
+
+Además, hay que reemplazar los datos acá:
+
+\begin{verbatim}
+\author{Juan Peréz}
+\guia{Juana Peréz, José Peréz}
+\date{20XX}
+\end{verbatim}
+
+Como una aproximación, se espera que la propuesta sea de 5--10 páginas.
+
+[No hay que poner texto acá. Se puede empezar directamente con la introducción.]
+\end{pauta}
+
+\section{Introducción}\label{sec:intro}
+
+\begin{pauta}
+Dar una introducción al contexto del tema.
+
+Explicar, en términos generales, el problema abordado.
+
+Motivar la necesidad, la importancia y/o el valor, de tener una (mejor) solución.
+
+[1--2 páginas]
+\end{pauta}
+
+\section{Situación Actual}\label{sec:sa}
+
+\begin{pauta}
+Discutir las soluciones o recursos existentes relacionados con el problema. Justificar por qué es necesario un trabajo novedoso.
+
+[1--2 páginas]
+\end{pauta}
+
+Ejemplos de referencias:
+
+\begin{itemize}
+  \item Conferencia~\cite{CorlessJK97}
+  \item Revista~\cite{NewmanT42}
+  \item Tesis~\cite{Turing38}
+\end{itemize}
+
+% DBLP es una buena fuente de referencias en formata "BibTeX"
+% en Ciencias de la Computación
+% p.ej., https://dblp.org/pers/hd/t/Turing:Alan_M=
+
+\section{Objetivos}\label{chap:obj}
+
+\begin{pauta}
+Describir las \textit{metas} del trabajo. Hay que contestar acá: ¿\textit{qué} quieres lograr? (La sección que sigue contestará la pregunta: ¿\textit{cómo} lo vas a lograr?)
+
+Ejemplos de metas: lograr que X sea (más) eficiente, usable, seguro, completo, preciso, barato, informativo, posible por primera vez, etc.
+
+Ejemplos de \textit{no} metas: implementar algo en Javascript, aplicar modelo Y sobre los datos, etc. (Estas cosas van en la descripción de la \textbf{Solución Propuesta}.)
+
+Los objetivos deberían ser específicos, medibles, alcanzables y relevantes al problema (ver la clase 2). El plan de trabajo debería argumentar que sean acotados en tiempo (un semestre).
+
+Al final del trabajo, debería ser factible saber si se ha logrado los objetivos enumerados acá, o saber cuán bien se han logrado, o no. Por ejemplo, si la meta es tener algo eficiente en términos de tiempo, debería haber una forma de evaluar o estudiar los tiempos. Acá tendrás que definir la forma general en que se podrá evaluar el trabajo.
+
+[No hay que poner texto acá. Se puede empezar directamente con el objetivo general.]
+\end{pauta}
+
+  \subsection*{Objetivo General}\label{sec:obj-g}
+  
+  \begin{pauta}
+  Un \textit{resumen conciso} (no más de un párrafo) de la meta principal del trabajo, es decir, qué quieres lograr con el trabajo (o qué significa ``éxito'' en el contexto del trabajo).
+  
+  El objetivo debería ser específico, medible, alcanzable, relevantes al problema, y acotado en tiempo.
+  
+  (``Titularse'' no es una repuesta válida. :))
+  
+  [1 párrafo]
+  \end{pauta}
+
+  \subsection*{Objetivos Específicos}\label{sec:obj-e}
+  
+  \begin{pauta}
+  Una \textit{lista} de los hitos principales que se quieren lograr para (intentar) cumplir con el objetivo general. Divide el objetivo general en varios hitos que formarán las etapas del trabajo.
+  
+  Cada objetivo debería ser específico, medible, alcanzable, relevante al problema, y acotado en tiempo.
+  
+  Puede ser algo como (en breve, para dar la idea): (1) obtener un conjunto de datos preciso, (2) diseñar un modelo de datos completo, (3) implementar un back-end que permita hacer tales consultas de forma eficiente, (4) diseñar e implementar una interfaz usable. Debería haber más detalles, pero no más de un párrafo por hito. 
+  
+  Los objetivos específicos deberían ``sumar'' al objetivo general.
+  
+  [Una lista de 3--7 párrafos]
+  \end{pauta}
+  
+  \begin{enumerate}
+    \item ...
+    \item ...
+  \end{enumerate}
+  
+  \subsection*{Evaluación}\label{sec:eval}
+  
+  \begin{pauta}
+  Describe cómo vas a poder evaluar el trabajo en términos de cuán bien  cumple con los objetivos planteados. Se pueden discutir los datos, las medidas, los usuarios, las técnicas, etc., utilizables para la evaluación.
+  
+  [1--2 párrafos]
+  \end{pauta}
+
+\section{Solución Propuesta}\label{sec:sol}
+
+\begin{pauta}
+Una descripción general de la solución propuesta: los datos, las técnicas, las tecnologías, las herramientas, los lenguajes, los marcos, etc., que se usarán para intentar lograr los objetivos planteados. Aquí hay que contestar la pregunta: ¿\textit{cómo} vas a lograr los objetivos planteados? Aquí, sí, está muy bien hablar de Javascript, CNNs, Numpy, Django, índices invertidos, árboles wavelet, privacidad diferencial, PageRank, Diffie--Hellman, triangulaciones de Delaunay, CUDA, Postgres, etc.
+
+[1--2 páginas]
+\end{pauta}
+
+
+\section{Plan de Trabajo (Preliminar)}\label{sec:pdt}
+
+\begin{pauta}
+Aquí se puede dar un borrador de una lista de los pasos que se van a seguir para desarrollar la solución propuesta. La lista debería contemplar la evaluación del trabajo y la escritura de la memoria. Siendo un plan preliminar, su propósito es dar una mejor idea de la factibilidad del tema y el trabajo que implica, pero se pueden aplicar cambios al plan para el informe final de este curso.
+
+[0,5--2 páginas]
+\end{pauta}
+
+\begin{enumerate}
+  \item ...
+  \item ...
+\end{enumerate}
+
+\bibliographystyle{babplain}
+\bibliography{bibliografia}
+
+\end{document}
