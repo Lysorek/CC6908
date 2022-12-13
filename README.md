@@ -18,7 +18,7 @@ En el presente repositorio, iré almacenando todos los archivos (iteraciones de 
 
 Para desarrollar el proyecto de título durante el semestre de Otoño 2023, se seguirá la siguiente planificación:
 
-![alt text](Imagenes/cronograma.PNG "Cronograma de CC6909.")
+![alt text](Imagenes/cronograma_actualizado.PNG "Cronograma de CC6909.")
 
 donde:
 
