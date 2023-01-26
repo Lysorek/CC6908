@@ -3,22 +3,31 @@
 ## Ayatori: implementación eficiente de Connection Scan en GTFS con caso de estudio de movilidad en Santiago.
 ***
 
-En el presente repositorio, iré almacenando todos los archivos (iteraciones de informes, imágenes, datasets, código, etc.) que se utilicen en la realización del Trabajo de Título. La distribución de los directorios es:
+En el presente repositorio, iré almacenando todos los archivos (iteraciones de informes, imágenes, datasets, código, etc.) que se utilicen en la realización del Trabajo de Título.
 
-### Coding: almacena todo el código utilizado en el proyecto.
+## Directorios
 
-### Dataset: todo archivo que sirva para alimentar al algoritmo a desarrollar.
+### Coding
+Almacena todo el código utilizado en el proyecto.
 
-### Documentos CC6908: primeras iteraciones del informe final, incluyendo la Propuesta de Tema de Memoria.
+### Dataset
+Todo archivo que sirva para alimentar al algoritmo a desarrollar.
 
-### Imágenes: fotos y diagramas a utilizar en el informe.
+### Documentos CC6908
+Primeras iteraciones del informe final, incluyendo la Propuesta de Tema de Memoria. Se incluye la iteración del informe
+a entregar por Vía Rápida.
 
-### Templates: plantillas para el informe final.
+### Imágenes
+Fotos y diagramas a utilizar en el informe.
+
+### Templates
+Plantillas para el informe final.
 
 
+## Cronograma
 Para desarrollar el proyecto de título durante el semestre de Otoño 2023, se seguirá la siguiente planificación:
 
-![alt text](Imagenes/cronograma_actualizado.PNG "Cronograma de CC6909.")
+![alt text](Imagenes/cronograma_2023.PNG "Cronograma de CC6909.")
 
 donde:
 
@@ -29,9 +38,17 @@ donde:
 5. Estudiar el pipeline de análisis de datos y los resultados alcanzables en su estado actual.
 6. Integrar el algoritmo al pipeline y verificar diferencias en los resultados alcanzables.
 7. Utilizar los resultados para inferir situaciones que permitan caracterizar la movilidad urbana en Santiago.
+8. Realizar el Caso de Estudio definido.
+
+Se añaden al cronograma la tarea de escribir la memoria, y los plazos de entrega del informe, tanto del informe de
+CC6908 (Vía Rápida) como del informe final de memoria de CC6909. Por otro lado, el caso de estudio definido consiste en estudiar las rutas disponibles en Santiago, antes y después de la implementación de la Línea 3 del Metro (la última en inaugurarse al momento del desarrollo de este trabajo de título). Su finalidad es probar la efectividad y eficiencia de la solución desarrollada, y utilizar sus resultados para comparar la situación en la ciudad bajo diferentes condiciones.
 
 ## Plazos
 
-* Inicio Semestre Otoño 2023: TBA.
+* Entrega final informe CC6908: 13 de diciembre de 2022, 17:00.
 
-* Entrega Final: Semana 15 (fechas exactas TBA).
+* Inicio Semestre Otoño 2023: 13 de marzo de 2023.
+
+* Entrega informe por Vía Rápida: 15 de marzo de 2023, 17:00.
+
+* Entrega Final: Semana 15 (entre el 3 de julio y el 7 de julio de 2023).
