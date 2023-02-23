@@ -1,12 +1,31 @@
-import os
 import geopandas as gpd
+import matplotlib.pyplot as plt # Es necesario importar el plot para que se vea
 from pyrosm import get_data, OSM
+from pyrosm.data import sources
 
-#fp = get_data("Santiago")
-#print(fp)
+# COMANDOS #
+# cd "Desktop/Universidad/14° Semestre (Primavera 2022)/CC6908-Introducción al Trabajo de Título/CC6909-Ayatori/Dataset/OSM"
+# python.exe pbf_processor.py
 
-filepath = get_data("test_pbf",directory="C:/Users/felip/Desktop/Universidad/14° Semestre (Primavera 2022)/CC6908-Introducción al Trabajo de Título/CC6909-Ayatori")
-osm = OSM(filepath)
+#print(sources.south_america.available)
 
-walk_net = osm.get_network(network_type="walking")
-walk_net.plot()
+fp = get_data(
+    "Santiago",
+    update=True,
+    directory="C:/Users/felip/Desktop/Universidad/14° Semestre (Primavera 2022)/CC6908-Introducción al Trabajo de Título/CC6909-Ayatori"
+    )
+
+print("Filepath: ", fp)
+
+osm = OSM(fp)
+
+# Driving
+#drive_net = osm.get_network(network_type="driving")
+#drive_net.plot()
+
+# Walking
+nodes, edges = osm.get_network(nodes=True,network_type="walking")
+ax = edges.plot()
+nodes.plot(ax = ax, color = 'orange', markersize = 2);
+
+plt.show()
