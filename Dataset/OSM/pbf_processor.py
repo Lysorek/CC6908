@@ -24,8 +24,11 @@ osm = OSM(fp)
 #drive_net.plot()
 
 # Walking
-nodes, edges = osm.get_network(nodes=True,network_type="walking")
+nodes, edges = osm.get_network(nodes=True,network_type="cycling")
 ax = edges.plot()
-nodes.plot(ax = ax, color = 'orange', markersize = 2);
+nodes.plot(ax = ax, color = 'orange', markersize = 2)
 
+plt.title('Caminos disponibles en Santiago para viajar: en bicicleta.')
+plt.xlabel('Latitud')
+plt.ylabel('Longitud')
 plt.show()
