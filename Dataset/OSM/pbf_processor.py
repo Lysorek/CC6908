@@ -23,32 +23,24 @@ print("Filepath: ", fp)
 
 osm = OSM(fp)
 
-nodes, edges = osm.get_network(nodes=True)
-G = osm.to_graph(nodes, edges, graph_type="networkx")
+# RUTA MÁS CORTA #
+#nodes, edges = osm.get_network(nodes=True)
+#G = osm.to_graph(nodes, edges, graph_type="networkx")
 
-source_address = "Beauchef 850, Santiago" # Campus Beauchef de la Universidad de Chile
-target_address = "Av. Sta. Rosa 11315, La Pintana" # Campus Sur de la Universidad de Chile
+#source_address = "Beauchef 850, Santiago" # Campus Beauchef de la Universidad de Chile
+#target_address = "Av. Sta. Rosa 11315, La Pintana" # Campus Sur de la Universidad de Chile
 
-source = ox.geocode(source_address)
-target = ox.geocode(target_address)
+#source = ox.geocode(source_address)
+#target = ox.geocode(target_address)
 
-#print(source)
-#print(target)
+#source_node = ox.nearest_nodes(G, source[1], source[0])
+#target_node = ox.nearest_nodes(G, target[1], target[0])
 
-source_node = ox.nearest_nodes(G, source[1], source[0])
-target_node = ox.nearest_nodes(G, target[1], target[0])
+#route = nx.shortest_path(G, source_node, target_node, weight="length")
+#fig, ax = ox.plot_graph_route(G, route, route_linewidth=6, node_size=0, bgcolor='k')
 
-#print(source_node)
-#print(target_node)
 
-route = nx.shortest_path(G, source_node, target_node, weight="length")
-fig, ax = ox.plot_graph_route(G, route, route_linewidth=6, node_size=0, bgcolor='k')
-
-ax.plot()
-plt.title("Gráfico de ruta entre Campus Beauchef y Campus Sur de la Universidad de Chile")
-plt.show()
-#ax.xlabel('Latitud')
-#ax.ylabel('Longitud')
+# GRÁFICOS GENERALES #
 
 # Driving
 #nodes, edges = osm.get_network(nodes=True, network_type="driving")
@@ -59,11 +51,12 @@ plt.show()
 #plt.title('Caminos disponibles en Santiago para viajar: en bicicleta.')
 
 # Walking
-#nodes, edges = osm.get_network(nodes=True,network_type="walking")
+nodes, edges = osm.get_network(nodes=True,network_type="walking")
 
-#ax = edges.plot()
+ax = edges.plot()
 #nodes.plot(ax = ax, color = 'orange', markersize = 2)
-#plt.title('Caminos disponibles en Santiago para viajar: caminando.')
-#plt.xlabel('Latitud')
-#plt.ylabel('Longitud')
-#plt.show()
+
+plt.title('Caminos disponibles en Santiago para viajar: caminando.')
+plt.xlabel('Latitud')
+plt.ylabel('Longitud')
+plt.show()
