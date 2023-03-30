@@ -7,15 +7,18 @@ En el presente repositorio, iré almacenando todos los archivos (iteraciones de 
 
 ## Directorios
 
+## ayatori
+Directorio plantilla del paquete de Python que se planea armar a futuro cuando el proyecto esté completado.
+
 ### Coding
 Almacena todo el código utilizado en el proyecto.
 
 ### Dataset
 Todo archivo que sirva para alimentar al algoritmo a desarrollar.
 
-### Documentos CC6908
-Primeras iteraciones del informe final, incluyendo la Propuesta de Tema de Memoria. Se incluye la iteración del informe
-a entregar por Vía Rápida.
+### Documentos
+Archivos administrativos importantes del proceso de titulación, dividido en el "E" y el "F". La carpeta CC6908 incluye las primeras iteraciones del informe final, incluyendo la Propuesta de Tema de Memoria, y la iteración del informe
+a entregar por Vía Rápida. En cambio, la carpeta CC6909 tendrá las presentaciones de avances e iteraciones del informe final.
 
 ### Imágenes
 Fotos y diagramas a utilizar en el informe.
@@ -42,6 +45,8 @@ donde:
 
 Se añaden al cronograma la tarea de escribir la memoria, y los plazos de entrega del informe, tanto del informe de
 CC6908 (Vía Rápida) como del informe final de memoria de CC6909. Por otro lado, el caso de estudio definido consiste en estudiar las rutas disponibles en Santiago, antes y después de la implementación de la Línea 3 del Metro (la última en inaugurarse al momento del desarrollo de este trabajo de título). Su finalidad es probar la efectividad y eficiencia de la solución desarrollada, y utilizar sus resultados para comparar la situación en la ciudad bajo diferentes condiciones.
+
+*En caso de ser necesario, se podrían realizar cambios en la planificación a lo largo del semestre.
 
 ## Plazos
 
