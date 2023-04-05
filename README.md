@@ -30,7 +30,7 @@ Plantillas para el informe final.
 ## Cronograma
 Para desarrollar el proyecto de título durante el semestre de Otoño 2023, se seguirá la siguiente planificación:
 
-![alt text](Imagenes/cronograma_2023.PNG "Cronograma de CC6909.")
+![alt text](Imagenes/cronograma_nuevo.PNG "Cronograma de CC6909.")
 
 donde:
 
@@ -48,12 +48,12 @@ CC6908 (Vía Rápida) como del informe final de memoria de CC6909. Por otro lado
 
 *En caso de ser necesario, se podrían realizar cambios en la planificación a lo largo del semestre.
 
-## Plazos
+## Próximos plazos máximos
 
-* Entrega final informe CC6908: 13 de diciembre de 2022, 17:00.
+* Solicitudes de prórroga: 10 de julio de 2023.
 
-* Inicio Semestre Otoño 2023: 13 de marzo de 2023.
+* Entrega Final: 24 de julio de 2023.
 
-* Entrega informe por Vía Rápida: 15 de marzo de 2023, 17:00.
+* Entrega de Correcciones: 4 de septiembre de 2023.
 
-* Entrega Final: Semana 15 (entre el 3 de julio y el 7 de julio de 2023).
+* Toma de Examen: 6 de noviembre de 2023.
