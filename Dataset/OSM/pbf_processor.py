@@ -7,7 +7,7 @@ import osmnx as ox
 
 
 # COMANDOS #
-# cd "Desktop/Universidad/14° Semestre (Primavera 2022)/CC6908-Introducción al Trabajo de Título/CC6909-Ayatori/Dataset/OSM"
+# cd "Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori/Dataset/OSM"
 # cd Dataset/OSM
 # python.exe pbf_processor.py
 
@@ -16,7 +16,7 @@ import osmnx as ox
 fp = get_data(
     "Santiago",
     update=True,
-    directory="C:/Users/felip/Desktop/Universidad/14° Semestre (Primavera 2022)/CC6908-Introducción al Trabajo de Título/CC6909-Ayatori"
+    directory="C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
     )
 
 print("Filepath: ", fp)
@@ -24,20 +24,26 @@ print("Filepath: ", fp)
 osm = OSM(fp)
 
 # RUTA MÁS CORTA #
-#nodes, edges = osm.get_network(nodes=True)
-#G = osm.to_graph(nodes, edges, graph_type="networkx")
+nodes, edges = osm.get_network(nodes=True)
+G = osm.to_graph(nodes, edges, graph_type="networkx")
 
 #source_address = "Beauchef 850, Santiago" # Campus Beauchef de la Universidad de Chile
+#source_address = "Av. Dorsal 1913, Conchali" # Plaza Bicentenario de Conchalí
+#target_address = "Beauchef 850, Santiago" # Campus Beauchef de la Universidad de Chile
+#target_address = "Pío Nono 1, Providencia" # Facultad de Derecho
 #target_address = "Av. Sta. Rosa 11315, La Pintana" # Campus Sur de la Universidad de Chile
 
-#source = ox.geocode(source_address)
-#target = ox.geocode(target_address)
+source_address = input("Ingresa dirección de inicio: ")
+target_address = input("Ingresa dirección de destino: ")
 
-#source_node = ox.nearest_nodes(G, source[1], source[0])
-#target_node = ox.nearest_nodes(G, target[1], target[0])
+source = ox.geocode(str(source_address))
+target = ox.geocode(str(target_address))
 
-#route = nx.shortest_path(G, source_node, target_node, weight="length")
-#fig, ax = ox.plot_graph_route(G, route, route_linewidth=6, node_size=0, bgcolor='k')
+source_node = ox.nearest_nodes(G, source[1], source[0])
+target_node = ox.nearest_nodes(G, target[1], target[0])
+
+route = nx.shortest_path(G, source_node, target_node, weight="length")
+fig, ax = ox.plot_graph_route(G, route, route_linewidth=6, node_size=0, bgcolor='k')
 
 
 # GRÁFICOS GENERALES #
@@ -51,12 +57,12 @@ osm = OSM(fp)
 #plt.title('Caminos disponibles en Santiago para viajar: en bicicleta.')
 
 # Walking
-nodes, edges = osm.get_network(nodes=True,network_type="walking")
+#nodes, edges = osm.get_network(nodes=True,network_type="walking")
 
-ax = edges.plot()
+#ax = edges.plot()
 #nodes.plot(ax = ax, color = 'orange', markersize = 2)
 
-plt.title('Caminos disponibles en Santiago para viajar: caminando.')
-plt.xlabel('Latitud')
-plt.ylabel('Longitud')
-plt.show()
+#plt.title('Caminos disponibles en Santiago para viajar: caminando.')
+#plt.xlabel('Latitud')
+#plt.ylabel('Longitud')
+#plt.show()
