@@ -4,6 +4,7 @@ from pyrosm import get_data, OSM
 from pyrosm.data import sources
 import networkx as nx
 import osmnx as ox
+from datetime import datetime, date, time
 
 
 # COMANDOS #
@@ -27,14 +28,45 @@ osm = OSM(fp)
 nodes, edges = osm.get_network(nodes=True)
 G = osm.to_graph(nodes, edges, graph_type="networkx")
 
+#EJEMPLOS
 #source_address = "Beauchef 850, Santiago" # Campus Beauchef de la Universidad de Chile
 #source_address = "Av. Dorsal 1913, Conchali" # Plaza Bicentenario de Conchalí
 #target_address = "Beauchef 850, Santiago" # Campus Beauchef de la Universidad de Chile
 #target_address = "Pío Nono 1, Providencia" # Facultad de Derecho
 #target_address = "Av. Sta. Rosa 11315, La Pintana" # Campus Sur de la Universidad de Chile
 
-source_address = input("Ingresa dirección de inicio: ")
-target_address = input("Ingresa dirección de destino: ")
+# Fecha y hora
+now = datetime.now()
+dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
+print("Fecha y hora actuales =", dt_string)
+
+today = date.today()
+today_format = today.strftime("%d/%m/%Y")
+
+moment = now.strftime("%H:%M:%S")
+
+# Inputs de usuario
+# Fecha y hora
+source_date = input("Ingresa la fecha del viaje en formato DD/MM/YYY (presiona Enter para usar la fecha actual) : ") or today_format
+print(source_date)
+source_hour = input("Ingresa la hora del viaje en formato HH:MM:SS (presiona Enter para usar la hora actual) : ") or moment
+print(source_hour)
+
+# Dirección de inicio
+while True:
+    source_address = input("Ingresa dirección de inicio (Ejemplo: 'Beauchef 850, Santiago'): ")
+    if source_address.strip() != '':
+        print("Dirección de Inicio ingresada: " + source_address)
+        break
+
+# Dirección de destino
+while True:
+    target_address = input("Ingresa dirección de destino (Ejemplo: 'Beauchef 850, Santiago'): ")
+    if target_address.strip() != '':
+        print("Dirección de Destino ingresada: " + target_address)
+        break
+
+print("Preparando ruta, por favor espere...")
 
 source = ox.geocode(str(source_address))
 target = ox.geocode(str(target_address))
