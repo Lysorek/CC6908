@@ -71,16 +71,14 @@ def connection_scan(graph, source, destination, departure_time, departure_date):
             connections.append(current_route.copy())
             return
 
-        for edge in graph.out_edges():
-            if node == edge.source():
-                neighbor = edge.target()
-                if neighbor not in visited:
-                    travel_time = graph.ep['time'][edge]
-                    arrival_time = current_time + travel_time
+        for neighbor in node.out_neighbors():
+            if neighbor not in visited:
+                travel_time = graph.ep['time'][graph.edge(node, neighbor)]
+                arrival_time = current_time + travel_time
 
-                    current_route.append(neighbor)
-                    recursive_dfs(neighbor, arrival_time, current_route)
-                    current_route.pop()
+                current_route.append(neighbor)
+                recursive_dfs(neighbor, arrival_time, current_route)
+                current_route.pop()
 
         visited.remove(node)
 
@@ -115,17 +113,19 @@ def csa_commands():
     print(source_hour)
 
     # Source address
+    source_example = "Beauchef 850, Santiago"
     while True:
         source_address = input(
-            "Ingresa dirección de inicio (Ejemplo: 'Beauchef 850, Santiago'): ")
+            "Ingresa dirección de inicio (Ejemplo: 'Beauchef 850, Santiago'. Presiona Enter para usarlo): ") or source_example
         if source_address.strip() != '':
             print("Dirección de Inicio ingresada: " + source_address)
             break
 
     # Destination address
+    destination_example = "Pio Nono 1, Providencia"
     while True:
         target_address = input(
-            "Ingresa dirección de destino (Ejemplo: 'Beauchef 850, Santiago'): ")
+            "Ingresa dirección de destino (Ejemplo: 'Pio Nono 1, Providencia'. Presiona Enter para usarlo): ") or destination_example
         if target_address.strip() != '':
             print("Dirección de Destino ingresada: " + target_address)
             break
