@@ -58,7 +58,7 @@ def connection_scan(graph, source, destination, departure_time, departure_date):
     connections = []
     visited = set()
 
-    def recursive_dfs(node, current_time):
+    def recursive_dfs(node, current_time, current_route):
         """
         Performs a recursive Depth-First Search (DFS) from the given node with the current time.
         """
@@ -68,18 +68,23 @@ def connection_scan(graph, source, destination, departure_time, departure_date):
         visited.add(node)
 
         if node == destination:
-            connections.append([])
+            connections.append(current_route.copy())
             return
 
-        for neighbor in node.out_neighbors():
-            if neighbor not in visited:
-                travel_time = graph.ep['time'][graph.edge(node, neighbor)]
-                arrival_time = current_time + travel_time
-                recursive_dfs(neighbor, arrival_time)
+        for edge in graph.out_edges():
+            if node == edge.source():
+                neighbor = edge.target()
+                if neighbor not in visited:
+                    travel_time = graph.ep['time'][edge]
+                    arrival_time = current_time + travel_time
+
+                    current_route.append(neighbor)
+                    recursive_dfs(neighbor, arrival_time, current_route)
+                    current_route.pop()
 
         visited.remove(node)
 
-    recursive_dfs(source, departure_time)
+    recursive_dfs(source, departure_time, [source])
     return connections
 
 
