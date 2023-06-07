@@ -1,3 +1,12 @@
+import sys
+from pathlib import Path
+
+AVES_ROOT = Path("..")
+
+EOD_PATH = AVES_ROOT / "data" / "external" / "EOD_STGO"
+OSM_PATH = AVES_ROOT / "data" / "external" / "OSM"
+
+
 import graph_tool.all as gt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -12,9 +21,10 @@ from datetime import datetime, date, time
 from aves.data import eod, census
 from aves.features.utils import normalize_rows
 
-# esto configura la calidad de la imagen. dependerá de tu resolución. el valor por omisión es 80
+# Graph Settings
+# Sets the image's quality. The default value is 80.
 mpl.rcParams["figure.dpi"] = 192
-# esto depende de las fuentes que tengas instaladas en el sistema.
+# Sets the font to be used
 mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
 
 
@@ -28,18 +38,34 @@ def get_osm_data():
     fp = get_data(
         "Santiago",
         update=True,
-        directory="C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
+        directory=OSM_PATH # In local testing, "C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
     )
 
     print("Filepath: ", fp)
     osm = OSM(fp)
 
     nodes, edges = osm.get_network(nodes=True)
-    G = osm.to_graph(nodes, edges)
-    return G
 
+    graph = gt.Graph()
 
-def connection_scan(graph, source, destination, departure_time, departure_date):
+    vertex_map = {}
+    for node in nodes:
+        vertex_map[node] = graph.add_vertex()
+
+    for edge in edges:
+        if len(edge) < 2 or edge[0] == "" or edge[1] == "":
+            continue  # Skip edges with empty or missing nodes
+        source_node = edge[0]
+        target_node = edge[1]
+        if source_node not in vertex_map or target_node not in vertex_map:
+            continue  # Skip edges with missing nodes
+        source_vertex = vertex_map[source_node]
+        target_vertex = vertex_map[target_node]
+        graph.add_edge(source_vertex, target_vertex)
+
+    return graph
+
+def connection_scan(graph, source_address, target_address, departure_time, departure_date):
     """
     The Connection Scan algorithm is applied to search for travel routes from the source to the destination,
     given a departure time and date. By default, the algorithm uses the current date and time of the system.
@@ -47,42 +73,58 @@ def connection_scan(graph, source, destination, departure_time, departure_date):
 
     Args:
         graph (graph): the graph used to visualize the travel routes.
-        source (string): the source address of the travel.
-        destination (string): the destination address of the travel.
+        source_address (string): the source address of the travel.
+        target_address (string): the destination address of the travel.
         departure_time (time): the time at which the travel should start.
         departure_date (date): the date on which the travel should be done.
 
     Returns:
         list: the list of travel connections needed to arrive destination.
     """
+
+    def get_vertex_from_address(address):
+        """
+        Obtains the vertex in the graph corresponding to the given address.
+
+        Args:
+            address (string): the address to find the corresponding vertex for.
+
+        Returns:
+            vertex: the vertex in the graph corresponding to the address.
+        """
+        # I need to implement here the logic to access the OSM data
+
     connections = []
     visited = set()
 
-    def recursive_dfs(node, current_time, current_route):
+    def recursive_dfs(vertex, current_time, current_route):
         """
-        Performs a recursive Depth-First Search (DFS) from the given node with the current time.
+        Performs a recursive Depth-First Search (DFS) from the given vertex with the current time.
         """
         if current_time > departure_time:
             return
 
-        visited.add(node)
+        visited.add(vertex)
 
-        if node == destination:
+        if vertex == target_vertex:
             connections.append(current_route.copy())
             return
 
-        for neighbor in node.out_neighbors():
+        for neighbor in vertex.out_neighbors():
             if neighbor not in visited:
-                travel_time = graph.ep['time'][graph.edge(node, neighbor)]
+                travel_time = graph.ep['time'][graph.edge(vertex, neighbor)]
                 arrival_time = current_time + travel_time
 
                 current_route.append(neighbor)
                 recursive_dfs(neighbor, arrival_time, current_route)
                 current_route.pop()
 
-        visited.remove(node)
+        visited.remove(vertex)
 
-    recursive_dfs(source, departure_time, [source])
+    source_vertex = get_vertex_from_address(source_address)
+    target_vertex = get_vertex_from_address(target_address)
+
+    recursive_dfs(source_vertex, departure_time, [source_vertex])
     return connections
 
 
