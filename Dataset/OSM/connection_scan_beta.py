@@ -20,12 +20,63 @@ from datetime import datetime, date, time
 
 from aves.data import eod, census
 from aves.features.utils import normalize_rows
+from aves.models.network import Network
+from aves.visualization.networks import NodeLink
+import graph_tool.search
+import graph_tool.flow
+from aves.visualization.figures import figure_from_geodataframe
 
 # Graph Settings
 # Sets the image's quality. The default value is 80.
 mpl.rcParams["figure.dpi"] = 192
 # Sets the font to be used
 mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
+
+class Visitor(graph_tool.search.BFSVisitor):
+    def __init__(self, node_id, edge_weight, pred, dist):
+        self.pred = pred
+        self.dist = dist
+        self.cost = edge_weight
+
+        self.root = node_id
+        self.dist[node_id] = 0
+
+        self.next_ring = dict()
+        self.visited = set()
+        self.visited.add(node_id)
+
+    def discover_vertex(self, u):    
+        #print("-->", u, "has been discovered!")
+        self.next_ring[u] = self.dist[u]
+        #print(self.next_ring)
+
+    def examine_vertex(self, u):
+        #print(u, "has been examined...")
+        #print(self.next_ring)
+        pass
+
+    def tree_edge(self, e):
+        self.pred[e.target()] = int(e.source())
+        
+        cost = self.dist[e.source()] + self.cost[e]
+
+        # TODO: quizás hay que seleccionar un costo porque hay varias maneras de llegar
+        if not e.target() in self.visited:
+            self.dist[e.target()] = cost
+            self.visited.add(e.target())
+            
+        #print(f"{e.source()} --> {e.target()}: {self.cost[e]}", " - tree edge")
+
+    def finish_vertex(self, u):
+        del self.next_ring[u]
+        print("-->", u, "has been finished!", self.next_ring)
+        
+
+        if all(cost > 1500 for cost in self.next_ring.values()):
+            for node in self.next_ring.keys():
+                self.dist[node] = -1
+            raise graph_tool.search.StopSearch()
+
 
 
 def get_osm_data():
@@ -45,6 +96,23 @@ def get_osm_data():
     osm = OSM(fp)
 
     nodes, edges = osm.get_network(nodes=True)
+
+    # TRYING TO GRAPH
+    #network = Network.from_edgelist(
+    #    edges,
+    #    source="u",
+    #    target="v",
+    #    weight="length",
+    #)
+
+    #nodelink = NodeLink(network)
+    #nodelink.layout_nodes(method='geographical', geodataframe=nodes, node_column='id')
+
+    #node_id = network.node_map[nodes.loc[404214]['id']]
+    #dist = network.graph.new_vertex_property("int", val=2000)
+    #pred = network.graph.new_vertex_property("int64_t")
+
+    #graph_tool.search.bfs_search(network.graph, node_id, Visitor(node_id, network._edge_weight, pred, dist))
 
     graph = gt.Graph()
 
