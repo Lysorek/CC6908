@@ -25,6 +25,9 @@ from aves.visualization.networks import NodeLink
 import graph_tool.search
 import graph_tool.flow
 from aves.visualization.figures import figure_from_geodataframe
+from geopy.geocoders import Nominatim
+import pygtfs
+import os
 
 # Graph Settings
 # Sets the image's quality. The default value is 80.
@@ -92,7 +95,6 @@ def get_osm_data():
         directory=OSM_PATH # In local testing, "C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
     )
 
-    print("Filepath: ", fp)
     osm = OSM(fp)
 
     nodes, edges = osm.get_network(nodes=True)
@@ -133,6 +135,34 @@ def get_osm_data():
 
     return graph
 
+GTFS_PATH = os.path.join(os.getcwd(), "gtfs.zip")
+
+def get_gtfs_data():
+    # Load GTFS data
+    feed = pygtfs.Schedule(str(GTFS_PATH)) #Currently storing GTFS where OSM is
+
+    # Create a graph per route
+    graphs = {}
+    for route in feed.routes:
+        graph = Graph(directed=True)
+        stop_ids = set()
+        trips = feed.trips_by_route(route)
+        for trip in trips:
+            stop_times = trip.stop_times
+            for i in range(len(stop_times)):
+                stop_ids.add(stop_times[i].stop_id)
+            for i in range(len(stop_times) - 1):
+                u = graph.add_vertex(stop_times[i].stop_id)
+                v = graph.add_vertex(stop_times[i + 1].stop_id)
+                e = graph.edge(u, v, add_missing=True)
+                graph.ep.weight[e] += 1
+        graphs[route.route_id] = graph
+
+    # Store graphs into a file
+    for route_id, graph in graphs.items():
+        graph.save(f"{route_id}.gt")
+
+
 def connection_scan(graph, source_address, target_address, departure_time, departure_date):
     """
     The Connection Scan algorithm is applied to search for travel routes from the source to the destination,
@@ -150,17 +180,22 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
         list: the list of travel connections needed to arrive destination.
     """
 
-    def get_vertex_from_address(address):
+    def get_node_from_address(address):
         """
-        Obtains the vertex in the graph corresponding to the given address.
+        Obtains the node in the graph corresponding to the given address.
 
         Args:
-            address (string): the address to find the corresponding vertex for.
+            address (string): the address to find the corresponding node for.
 
         Returns:
-            vertex: the vertex in the graph corresponding to the address.
+            node: the node in the graph corresponding to the address.
         """
         # I need to implement here the logic to access the OSM data
+        geolocator = Nominatim(user_agent="ayatori")
+
+        node = geolocator.geocode(address)
+
+        return node
 
     connections = []
     visited = set()
@@ -174,7 +209,7 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
         visited.add(vertex)
 
-        if vertex == target_vertex:
+        if vertex == target_node:
             connections.append(current_route.copy())
             return
 
@@ -189,10 +224,12 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
         visited.remove(vertex)
 
-    source_vertex = get_vertex_from_address(source_address)
-    target_vertex = get_vertex_from_address(target_address)
+    source_node = get_node_from_address(source_address)
+    target_node = get_node_from_address(target_address)
+    print("Source is in "+(source_node.latitude, source_node.longitude))
+    print("Target is in "+(target_node.latitude, target_node.longitude))
 
-    recursive_dfs(source_vertex, departure_time, [source_vertex])
+    recursive_dfs(source_node, departure_time, [source_node])
     return connections
 
 
