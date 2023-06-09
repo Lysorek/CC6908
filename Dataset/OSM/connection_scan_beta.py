@@ -28,6 +28,7 @@ from aves.visualization.figures import figure_from_geodataframe
 from geopy.geocoders import Nominatim
 import pygtfs
 import os
+from graph_tool.all import Graph
 
 # Graph Settings
 # Sets the image's quality. The default value is 80.
@@ -135,32 +136,68 @@ def get_osm_data():
 
     return graph
 
-GTFS_PATH = os.path.join(os.getcwd(), "gtfs.zip")
 
 def get_gtfs_data():
+    """
+    Reads the GTFS data from a file and creates a directed graph with its info, using the 'pygtfs' library. This gives
+    the transit feed data of Santiago's public transport, including "Red Metropolitana de Movilidad" (previously known
+    as Transantiago), "Metro de Santiago", "EFE Trenes de Chile", and "Buses de Acercamiento Aeropuerto".
+    """
     # Load GTFS data
-    feed = pygtfs.Schedule(str(GTFS_PATH)) #Currently storing GTFS where OSM is
+    sched = pygtfs.Schedule(":memory:")
+    pygtfs.append_feed(sched, "gtfs.zip")
 
     # Create a graph per route
     graphs = {}
-    for route in feed.routes:
+    stop_id_map = {}  # Diccionario para asignar identificadores únicos a cada parada
+
+    for route in sched.routes:
         graph = Graph(directed=True)
         stop_ids = set()
-        trips = feed.trips_by_route(route)
+        trips = [trip for trip in sched.trips if trip.route_id == route.route_id]
+
+        weight_prop = graph.new_edge_property("int")  # Propiedad para almacenar los pesos de las aristas
+
         for trip in trips:
             stop_times = trip.stop_times
+
             for i in range(len(stop_times)):
-                stop_ids.add(stop_times[i].stop_id)
-            for i in range(len(stop_times) - 1):
-                u = graph.add_vertex(stop_times[i].stop_id)
-                v = graph.add_vertex(stop_times[i + 1].stop_id)
-                e = graph.edge(u, v, add_missing=True)
-                graph.ep.weight[e] += 1
+                stop_id = stop_times[i].stop_id
+
+                if stop_id not in stop_id_map:
+                    vertex = graph.add_vertex()  # Añadir un vértice vacío
+                    stop_id_map[stop_id] = vertex  # Asignar el vértice al identificador de parada
+                else:
+                    vertex = stop_id_map[stop_id]  # Obtener el vértice existente
+
+                stop_ids.add(vertex)
+
+                if i < len(stop_times) - 1:
+                    next_stop_id = stop_times[i + 1].stop_id
+
+                    if next_stop_id not in stop_id_map:
+                        next_vertex = graph.add_vertex()  # Añadir un vértice vacío para la siguiente parada
+                        stop_id_map[next_stop_id] = next_vertex  # Asignar el vértice al identificador de parada
+                    else:
+                        next_vertex = stop_id_map[next_stop_id]  # Obtener el vértice existente para la siguiente parada
+
+                    e = graph.add_edge(vertex, next_vertex)  # Añadir una arista entre las paradas
+                    weight_prop[e] = 1  # Asignar peso 1 a la arista
+
         graphs[route.route_id] = graph
 
     # Store graphs into a file
     for route_id, graph in graphs.items():
+        weight_prop = graph.new_edge_property("int")  # Crear una nueva propiedad de peso de arista
+
+        for e in graph.edges():  # Iterar sobre las aristas del grafo
+            weight_prop[e] = 1  # Asignar el peso 1 a cada arista
+
+        graph.edge_properties["weight"] = weight_prop  # Asignar la propiedad de peso al grafo
+
         graph.save(f"{route_id}.gt")
+
+    print(stop_id_map.keys())
 
 
 def connection_scan(graph, source_address, target_address, departure_time, departure_date):
