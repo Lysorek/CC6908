@@ -88,7 +88,7 @@ def get_osm_data():
     Obtains the required OpenStreetMap data using the 'pyrosm' library. This gives the map info of Santiago.
 
     Returns:
-        graph: osm data converted to a graph
+        graph: osm data converted to a graph.
     """
     fp = get_data(
         "Santiago",
@@ -142,6 +142,9 @@ def get_gtfs_data():
     Reads the GTFS data from a file and creates a directed graph with its info, using the 'pygtfs' library. This gives
     the transit feed data of Santiago's public transport, including "Red Metropolitana de Movilidad" (previously known
     as Transantiago), "Metro de Santiago", "EFE Trenes de Chile", and "Buses de Acercamiento Aeropuerto".
+
+    Returns:
+        graph: GTFS data converted to a graph.
     """
     # Load GTFS data
     sched = pygtfs.Schedule(":memory:")
@@ -149,14 +152,14 @@ def get_gtfs_data():
 
     # Create a graph per route
     graphs = {}
-    stop_id_map = {}  # Diccionario para asignar identificadores únicos a cada parada
+    stop_id_map = {}  # To assign unique ids to every stop
 
     for route in sched.routes:
         graph = Graph(directed=True)
         stop_ids = set()
         trips = [trip for trip in sched.trips if trip.route_id == route.route_id]
 
-        weight_prop = graph.new_edge_property("int")  # Propiedad para almacenar los pesos de las aristas
+        weight_prop = graph.new_edge_property("int")  # The edge's weight will be the id
 
         for trip in trips:
             stop_times = trip.stop_times
@@ -165,10 +168,10 @@ def get_gtfs_data():
                 stop_id = stop_times[i].stop_id
 
                 if stop_id not in stop_id_map:
-                    vertex = graph.add_vertex()  # Añadir un vértice vacío
-                    stop_id_map[stop_id] = vertex  # Asignar el vértice al identificador de parada
+                    vertex = graph.add_vertex()  # New empty vertex
+                    stop_id_map[stop_id] = vertex  # Assing the new vertex to the stop id
                 else:
-                    vertex = stop_id_map[stop_id]  # Obtener el vértice existente
+                    vertex = stop_id_map[stop_id]  # Obtains the existing vertex
 
                 stop_ids.add(vertex)
 
@@ -176,28 +179,29 @@ def get_gtfs_data():
                     next_stop_id = stop_times[i + 1].stop_id
 
                     if next_stop_id not in stop_id_map:
-                        next_vertex = graph.add_vertex()  # Añadir un vértice vacío para la siguiente parada
-                        stop_id_map[next_stop_id] = next_vertex  # Asignar el vértice al identificador de parada
+                        next_vertex = graph.add_vertex()  # Adds a new empty vertex for the next stop
+                        stop_id_map[next_stop_id] = next_vertex  # Assing the new vertex to the stop id
                     else:
-                        next_vertex = stop_id_map[next_stop_id]  # Obtener el vértice existente para la siguiente parada
+                        next_vertex = stop_id_map[next_stop_id]  # Obtains the existing vertex for the next stop
 
-                    e = graph.add_edge(vertex, next_vertex)  # Añadir una arista entre las paradas
-                    weight_prop[e] = 1  # Asignar peso 1 a la arista
+                    e = graph.add_edge(vertex, next_vertex)  # Adds an edge between the stops
+                    weight_prop[e] = 1  # The edge's weight is 1
 
         graphs[route.route_id] = graph
 
     # Store graphs into a file
     for route_id, graph in graphs.items():
-        weight_prop = graph.new_edge_property("int")  # Crear una nueva propiedad de peso de arista
+        weight_prop = graph.new_edge_property("int")  # Creates a new property (edge's weight)
 
-        for e in graph.edges():  # Iterar sobre las aristas del grafo
-            weight_prop[e] = 1  # Asignar el peso 1 a cada arista
+        for e in graph.edges():  # For every edge
+            weight_prop[e] = 1  # Assign a weight of 1
 
-        graph.edge_properties["weight"] = weight_prop  # Asignar la propiedad de peso al grafo
+        graph.edge_properties["weight"] = weight_prop  # Assing the property to the graph
 
         graph.save(f"{route_id}.gt")
 
-    print(stop_id_map.keys())
+    #print(stop_id_map.keys())
+    return graph
 
 
 def connection_scan(graph, source_address, target_address, departure_time, departure_date):
@@ -227,13 +231,15 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
         Returns:
             node: the node in the graph corresponding to the address.
         """
-        # I need to implement here the logic to access the OSM data
         geolocator = Nominatim(user_agent="ayatori")
 
-        node = geolocator.geocode(address)
+        location = geolocator.geocode(address)
+
+        # Use the address as the node identifier
+        node = location.address
 
         return node
-
+    
     connections = []
     visited = set()
 
@@ -250,9 +256,10 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
             connections.append(current_route.copy())
             return
 
-        for neighbor in vertex.out_neighbors():
+        out_neighbors = graph.get_out_neighbors(vertex)
+        for neighbor in out_neighbors:
             if neighbor not in visited:
-                travel_time = graph.ep['time'][graph.edge(vertex, neighbor)]
+                travel_time = graph.ep['time'][vertex, neighbor]
                 arrival_time = current_time + travel_time
 
                 current_route.append(neighbor)
@@ -263,11 +270,10 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
     source_node = get_node_from_address(source_address)
     target_node = get_node_from_address(target_address)
-    print("Source is in "+(source_node.latitude, source_node.longitude))
-    print("Target is in "+(target_node.latitude, target_node.longitude))
 
     recursive_dfs(source_node, departure_time, [source_node])
     return connections
+
 
 
 def csa_commands():
@@ -321,39 +327,5 @@ def csa_commands():
     connection_scan(graph, source_address, target_address, source_hour, source_date)
 
 
-# Ejemplo de uso
-# Crear un grafo de ejemplo
-""" graph = gt.Graph()
-vA = graph.add_vertex()
-vB = graph.add_vertex()
-vC = graph.add_vertex()
-vD = graph.add_vertex()
-vE = graph.add_vertex()
-
-eAB = graph.add_edge(vA, vB)
-eBC = graph.add_edge(vB, vC)
-eBD = graph.add_edge(vB, vD)
-eCD = graph.add_edge(vC, vD)
-eDE = graph.add_edge(vD, vE)
-
-graph.ep['time'] = graph.new_edge_property("int")
-graph.ep['time'][eAB] = 5
-graph.ep['time'][eBC] = 4
-graph.ep['time'][eBD] = 3
-graph.ep['time'][eCD] = 2
-graph.ep['time'][eDE] = 4
- """
-# Realizar una consulta
-""" source = vA
-destination = vE
-departure_time = 0
-result = connection_scan(graph, source, destination, departure_time)
-
-# Imprimir las rutas encontradas
-print(
-    f"Rutas desde el nodo {source} al nodo {destination} desde el tiempo {departure_time}:")
-for idx, route in enumerate(result):
-    print(f"Ruta {idx+1}: {' -> '.join(map(str, route))}")
- """
-
+# Run
 csa_commands()
