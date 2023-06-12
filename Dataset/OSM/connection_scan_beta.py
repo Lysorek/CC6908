@@ -94,12 +94,15 @@ def get_osm_data():
         "Santiago",
         update=True,
         directory=OSM_PATH # In local testing, "C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
-    )
+    ) # This takes around 40 seconds (00:35.06)
 
     osm = OSM(fp)
 
     nodes, edges = osm.get_network(nodes=True)
-    print(nodes['lon'][0])
+
+    column_names_list = list(nodes.columns)
+    coordinates = nodes[['lon', 'lat']].values
+    ids = nodes['id'].values
 
     graph = gt.Graph()
 
@@ -108,17 +111,15 @@ def get_osm_data():
     lat_prop = graph.new_vertex_property("float")
 
     vertex_map = {}
-    for node in nodes[3:]:
-        print(node)
+    for index, row in nodes.iterrows():
+        lon = row['lon']
+        lat = row['lat']
+
         vertex = graph.add_vertex()
-        vertex_map[node] = vertex
+        vertex_map[index] = vertex
 
-        # Getting the coordinates
-        print("Guardando la información de "+node)
-        lon = nodes['lon'][node]
-        lat = nodes['lat'][node]
-
-        # Assing the coordinates to the properties of the graph
+        #print("Guardando la información de "+str(index))
+        # Assing the coordinates to the graph's properties
         lon_prop[vertex] = lon
         lat_prop[vertex] = lat
 
@@ -126,18 +127,43 @@ def get_osm_data():
     graph.vertex_properties["lon"] = lon_prop
     graph.vertex_properties["lat"] = lat_prop
 
+    print(list(edges.columns))
+
     for edge in edges:
         if len(edge) < 2 or edge[0] == "" or edge[1] == "":
             continue  # Skip edges with empty or missing nodes
         source_node = edge[0]
+        print(edge)
+        print("SOURCE:")
+        print(source_node)
         target_node = edge[1]
+        print("TARGET:")
+        print(target_node)
         if source_node not in vertex_map or target_node not in vertex_map:
+            print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
             continue  # Skip edges with missing nodes
         source_vertex = vertex_map[source_node]
         target_vertex = vertex_map[target_node]
+        if not graph.vertex(source_vertex) or not graph.vertex(target_vertex):
+            print(f"Skipping edge with non-existent vertices: {source_vertex} -> {target_vertex}")
+            continue  # Skip edges with non-existent vertices
         graph.add_edge(source_vertex, target_vertex)
-
     return graph
+
+
+def print_graph(graph):
+    print("Vertices:")
+    for vertex in graph.vertices():
+        print(f"Vertex ID: {int(vertex)}, lon: {graph.vertex_properties['lon'][vertex]}, lat: {graph.vertex_properties['lat'][vertex]}")
+
+    print("\nEdges:")
+    for edge in graph.edges():
+        source = int(edge.source())
+        target = int(edge.target())
+        print(f"Edge: {source} -> {target}")
+
+graph = get_osm_data()
+print_graph(graph)
 
 def find_node_by_coordinates(graph, lon, lat):
     """
@@ -178,7 +204,7 @@ def get_gtfs_data():
     """
     # Load GTFS data
     sched = pygtfs.Schedule(":memory:")
-    pygtfs.append_feed(sched, "gtfs.zip")
+    pygtfs.append_feed(sched, "gtfs.zip") # This takes around 2 minutes (01:51.44)
 
     # Create a graph per route
     graphs = {}
