@@ -99,29 +99,32 @@ def get_osm_data():
     osm = OSM(fp)
 
     nodes, edges = osm.get_network(nodes=True)
-
-    # TRYING TO GRAPH
-    #network = Network.from_edgelist(
-    #    edges,
-    #    source="u",
-    #    target="v",
-    #    weight="length",
-    #)
-
-    #nodelink = NodeLink(network)
-    #nodelink.layout_nodes(method='geographical', geodataframe=nodes, node_column='id')
-
-    #node_id = network.node_map[nodes.loc[404214]['id']]
-    #dist = network.graph.new_vertex_property("int", val=2000)
-    #pred = network.graph.new_vertex_property("int64_t")
-
-    #graph_tool.search.bfs_search(network.graph, node_id, Visitor(node_id, network._edge_weight, pred, dist))
+    print(nodes['lon'][0])
 
     graph = gt.Graph()
 
+    # Create vertex properties for lon and lat
+    lon_prop = graph.new_vertex_property("float")
+    lat_prop = graph.new_vertex_property("float")
+
     vertex_map = {}
-    for node in nodes:
-        vertex_map[node] = graph.add_vertex()
+    for node in nodes[3:]:
+        print(node)
+        vertex = graph.add_vertex()
+        vertex_map[node] = vertex
+
+        # Getting the coordinates
+        print("Guardando la información de "+node)
+        lon = nodes['lon'][node]
+        lat = nodes['lat'][node]
+
+        # Assing the coordinates to the properties of the graph
+        lon_prop[vertex] = lon
+        lat_prop[vertex] = lat
+
+    # Assign the lon and lat properties to the graph
+    graph.vertex_properties["lon"] = lon_prop
+    graph.vertex_properties["lat"] = lat_prop
 
     for edge in edges:
         if len(edge) < 2 or edge[0] == "" or edge[1] == "":
@@ -135,6 +138,33 @@ def get_osm_data():
         graph.add_edge(source_vertex, target_vertex)
 
     return graph
+
+def find_node_by_coordinates(graph, lon, lat):
+    """
+    Finds a node in the graph based on its coordinates (lon, lat).
+
+    Args:
+        graph (graph): the graph containing the node coordinates.
+        lon (float): the longitude of the node.
+        lat (float): the latitude of the node.
+
+    Returns:
+        vertex: the vertex in the graph with the specified coordinates, or None if not found.
+    """
+    for vertex in graph.vertices():
+        if graph.vertex_properties["lon"][vertex] == lon and graph.vertex_properties["lat"][vertex] == lat:
+            return vertex
+    return None
+
+# EJEMPLO
+#lon = -33.4577725
+#lat = -70.6635288
+
+#node = find_node_by_coordinates(graph, lon, lat)
+#if node is not None:
+#    print("El nodo con coordenadas ({}, {}) fue encontrado en el grafo.".format(lon, lat))
+#else:
+#    print("El nodo con coordenadas ({}, {}) no fue encontrado en el grafo.".format(lon, lat))
 
 
 def get_gtfs_data():
