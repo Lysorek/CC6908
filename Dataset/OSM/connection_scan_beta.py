@@ -112,14 +112,16 @@ def get_osm_data():
 
     vertex_map = {}
     for index, row in nodes.iterrows():
+        print(row)
         lon = row['lon']
         lat = row['lat']
 
         vertex = graph.add_vertex()
         vertex_map[index] = vertex
 
+
         #print("Guardando la información de "+str(index))
-        # Assing the coordinates to the graph's properties
+        # Asignar las coordenadas a las propiedades del vértice
         lon_prop[vertex] = lon
         lat_prop[vertex] = lat
 
@@ -127,27 +129,28 @@ def get_osm_data():
     graph.vertex_properties["lon"] = lon_prop
     graph.vertex_properties["lat"] = lat_prop
 
-    print(list(edges.columns))
 
-    for edge in edges:
-        if len(edge) < 2 or edge[0] == "" or edge[1] == "":
-            continue  # Skip edges with empty or missing nodes
-        source_node = edge[0]
-        print(edge)
-        print("SOURCE:")
-        print(source_node)
-        target_node = edge[1]
-        print("TARGET:")
-        print(target_node)
+    for index, row in edges.iterrows():
+        #print(row)
+        source_node = row['u']
+        target_node = row['v']
+
+        if row["length"] < 2 or source_node == "" or target_node == "":
+            continue # Skip edges with empty or missing nodes
+
         if source_node not in vertex_map or target_node not in vertex_map:
-            print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
+            #print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
             continue  # Skip edges with missing nodes
+
         source_vertex = vertex_map[source_node]
         target_vertex = vertex_map[target_node]
+
         if not graph.vertex(source_vertex) or not graph.vertex(target_vertex):
             print(f"Skipping edge with non-existent vertices: {source_vertex} -> {target_vertex}")
             continue  # Skip edges with non-existent vertices
+
         graph.add_edge(source_vertex, target_vertex)
+
     return graph
 
 
