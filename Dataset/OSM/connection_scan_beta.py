@@ -111,16 +111,21 @@ def get_osm_data():
     lat_prop = graph.new_vertex_property("float")
 
     vertex_map = {}
+    #i = 0
+    print("GETTING NODES")
     for index, row in nodes.iterrows():
-        print(row)
         lon = row['lon']
         lat = row['lat']
 
         vertex = graph.add_vertex()
-        vertex_map[index] = vertex
+        vertex_map[row['id']] = vertex
 
+        #if i < 4:
+        #    print(index)
+        #    print(row)
+        #    print(vertex)
+        #    i+=1
 
-        #print("Guardando la información de "+str(index))
         # Asignar las coordenadas a las propiedades del vértice
         lon_prop[vertex] = lon
         lat_prop[vertex] = lat
@@ -130,16 +135,23 @@ def get_osm_data():
     graph.vertex_properties["lat"] = lat_prop
 
 
+    #j = 0
+    print("GETTING EDGES")
     for index, row in edges.iterrows():
-        #print(row)
         source_node = row['u']
         target_node = row['v']
+
+        #if j < 4:
+        #    print(index)
+        #    print(source_node)
+        #    print(target_node)
+        #    j+=1
 
         if row["length"] < 2 or source_node == "" or target_node == "":
             continue # Skip edges with empty or missing nodes
 
         if source_node not in vertex_map or target_node not in vertex_map:
-            #print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
+            print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
             continue  # Skip edges with missing nodes
 
         source_vertex = vertex_map[source_node]
@@ -185,15 +197,34 @@ def find_node_by_coordinates(graph, lon, lat):
             return vertex
     return None
 
-# EJEMPLO
-#lon = -33.4577725
-#lat = -70.6635288
 
-#node = find_node_by_coordinates(graph, lon, lat)
-#if node is not None:
-#    print("El nodo con coordenadas ({}, {}) fue encontrado en el grafo.".format(lon, lat))
-#else:
-#    print("El nodo con coordenadas ({}, {}) no fue encontrado en el grafo.".format(lon, lat))
+vertices = graph.vertices()
+
+#EJEMPLO
+i = 0
+for vertex in vertices:
+    # Realiza las operaciones que desees con cada vértice
+    # Por ejemplo, puedes acceder a las propiedades del vértice utilizando los diccionarios de propiedades
+    if i < 5:
+        lon = graph.vertex_properties["lon"][vertex]
+        lat = graph.vertex_properties["lat"][vertex]
+        print(lon, lat)
+        i+=1
+
+lon = -70.636785
+lat = -33.4369036
+
+geolocator = Nominatim(user_agent="ayatori")
+
+location = geolocator.geocode("Beauchef 850, Santiago, Chile")
+
+node = find_node_by_coordinates(graph, lon, lat)
+if node is not None:
+    direccion = geolocator.reverse((lat,lon))
+    print("El nodo con coordenadas ({}, {}) fue encontrado en el grafo.".format(lon, lat))
+    print("Corresponde a la dirección: {}".format(direccion))
+else:
+    print("El nodo con coordenadas ({}, {}) no fue encontrado en el grafo.".format(lon, lat))
 
 
 def get_gtfs_data():
