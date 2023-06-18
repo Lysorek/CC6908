@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import geopandas as gpd
+import numpy as np
 import shapely.geometry
 from pyrosm import get_data, OSM
 from pyrosm.data import sources
@@ -35,196 +36,6 @@ from graph_tool.all import Graph
 mpl.rcParams["figure.dpi"] = 192
 # Sets the font to be used
 mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
-
-class Visitor(graph_tool.search.BFSVisitor):
-    def __init__(self, node_id, edge_weight, pred, dist):
-        self.pred = pred
-        self.dist = dist
-        self.cost = edge_weight
-
-        self.root = node_id
-        self.dist[node_id] = 0
-
-        self.next_ring = dict()
-        self.visited = set()
-        self.visited.add(node_id)
-
-    def discover_vertex(self, u):    
-        #print("-->", u, "has been discovered!")
-        self.next_ring[u] = self.dist[u]
-        #print(self.next_ring)
-
-    def examine_vertex(self, u):
-        #print(u, "has been examined...")
-        #print(self.next_ring)
-        pass
-
-    def tree_edge(self, e):
-        self.pred[e.target()] = int(e.source())
-        
-        cost = self.dist[e.source()] + self.cost[e]
-
-        # TODO: quizás hay que seleccionar un costo porque hay varias maneras de llegar
-        if not e.target() in self.visited:
-            self.dist[e.target()] = cost
-            self.visited.add(e.target())
-            
-        #print(f"{e.source()} --> {e.target()}: {self.cost[e]}", " - tree edge")
-
-    def finish_vertex(self, u):
-        del self.next_ring[u]
-        print("-->", u, "has been finished!", self.next_ring)
-        
-
-        if all(cost > 1500 for cost in self.next_ring.values()):
-            for node in self.next_ring.keys():
-                self.dist[node] = -1
-            raise graph_tool.search.StopSearch()
-
-
-
-def get_osm_data():
-    """
-    Obtains the required OpenStreetMap data using the 'pyrosm' library. This gives the map info of Santiago.
-
-    Returns:
-        graph: osm data converted to a graph.
-    """
-    fp = get_data(
-        "Santiago",
-        update=True,
-        directory=OSM_PATH # In local testing, "C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
-    ) # This takes around 40 seconds (00:35.06)
-
-    osm = OSM(fp)
-
-    nodes, edges = osm.get_network(nodes=True)
-
-    column_names_list = list(nodes.columns)
-    coordinates = nodes[['lon', 'lat']].values
-    ids = nodes['id'].values
-
-    graph = gt.Graph()
-
-    # Create vertex properties for lon and lat
-    lon_prop = graph.new_vertex_property("float")
-    lat_prop = graph.new_vertex_property("float")
-
-    vertex_map = {}
-    #i = 0
-    print("GETTING NODES")
-    for index, row in nodes.iterrows():
-        lon = row['lon']
-        lat = row['lat']
-
-        vertex = graph.add_vertex()
-        vertex_map[row['id']] = vertex
-
-        #if i < 4:
-        #    print(index)
-        #    print(row)
-        #    print(vertex)
-        #    i+=1
-
-        # Asignar las coordenadas a las propiedades del vértice
-        lon_prop[vertex] = lon
-        lat_prop[vertex] = lat
-
-    # Assign the lon and lat properties to the graph
-    graph.vertex_properties["lon"] = lon_prop
-    graph.vertex_properties["lat"] = lat_prop
-
-
-    #j = 0
-    print("GETTING EDGES")
-    for index, row in edges.iterrows():
-        source_node = row['u']
-        target_node = row['v']
-
-        #if j < 4:
-        #    print(index)
-        #    print(source_node)
-        #    print(target_node)
-        #    j+=1
-
-        if row["length"] < 2 or source_node == "" or target_node == "":
-            continue # Skip edges with empty or missing nodes
-
-        if source_node not in vertex_map or target_node not in vertex_map:
-            print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
-            continue  # Skip edges with missing nodes
-
-        source_vertex = vertex_map[source_node]
-        target_vertex = vertex_map[target_node]
-
-        if not graph.vertex(source_vertex) or not graph.vertex(target_vertex):
-            print(f"Skipping edge with non-existent vertices: {source_vertex} -> {target_vertex}")
-            continue  # Skip edges with non-existent vertices
-
-        graph.add_edge(source_vertex, target_vertex)
-
-    return graph
-
-
-def print_graph(graph):
-    print("Vertices:")
-    for vertex in graph.vertices():
-        print(f"Vertex ID: {int(vertex)}, lon: {graph.vertex_properties['lon'][vertex]}, lat: {graph.vertex_properties['lat'][vertex]}")
-
-    print("\nEdges:")
-    for edge in graph.edges():
-        source = int(edge.source())
-        target = int(edge.target())
-        print(f"Edge: {source} -> {target}")
-
-graph = get_osm_data()
-print_graph(graph)
-
-def find_node_by_coordinates(graph, lon, lat):
-    """
-    Finds a node in the graph based on its coordinates (lon, lat).
-
-    Args:
-        graph (graph): the graph containing the node coordinates.
-        lon (float): the longitude of the node.
-        lat (float): the latitude of the node.
-
-    Returns:
-        vertex: the vertex in the graph with the specified coordinates, or None if not found.
-    """
-    for vertex in graph.vertices():
-        if graph.vertex_properties["lon"][vertex] == lon and graph.vertex_properties["lat"][vertex] == lat:
-            return vertex
-    return None
-
-
-vertices = graph.vertices()
-
-#EJEMPLO
-i = 0
-for vertex in vertices:
-    # Realiza las operaciones que desees con cada vértice
-    # Por ejemplo, puedes acceder a las propiedades del vértice utilizando los diccionarios de propiedades
-    if i < 5:
-        lon = graph.vertex_properties["lon"][vertex]
-        lat = graph.vertex_properties["lat"][vertex]
-        print(lon, lat)
-        i+=1
-
-lon = -70.636785
-lat = -33.4369036
-
-geolocator = Nominatim(user_agent="ayatori")
-
-location = geolocator.geocode("Beauchef 850, Santiago, Chile")
-
-node = find_node_by_coordinates(graph, lon, lat)
-if node is not None:
-    direccion = geolocator.reverse((lat,lon))
-    print("El nodo con coordenadas ({}, {}) fue encontrado en el grafo.".format(lon, lat))
-    print("Corresponde a la dirección: {}".format(direccion))
-else:
-    print("El nodo con coordenadas ({}, {}) no fue encontrado en el grafo.".format(lon, lat))
 
 
 def get_gtfs_data():
@@ -294,6 +105,189 @@ def get_gtfs_data():
     return graph
 
 
+def get_osm_data():
+    """
+    Obtains the required OpenStreetMap data using the 'pyrosm' library. This gives the map info of Santiago.
+
+    Returns:
+        graph: osm data converted to a graph.
+    """
+    fp = get_data(
+        "Santiago",
+        update=True,
+        directory=OSM_PATH # In local testing, "C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
+    ) # This takes around 40 seconds (00:35.06)
+
+    osm = OSM(fp)
+
+    nodes, edges = osm.get_network(nodes=True)
+
+    column_names_list = list(nodes.columns)
+    coordinates = nodes[['lon', 'lat']].values
+    ids = nodes['id'].values
+
+    graph = gt.Graph()
+
+    # Create vertex properties for lon and lat
+    lon_prop = graph.new_vertex_property("float")
+    lat_prop = graph.new_vertex_property("float")
+    id_prop = graph.new_vertex_property("long")
+
+    vertex_map = {}
+
+    print("GETTING NODES")
+    for index, row in nodes.iterrows():
+        lon = row['lon']
+        lat = row['lat']
+        node_id = row['id']
+
+        vertex = graph.add_vertex()
+        vertex_map[node_id] = vertex
+
+        # Assigning node properties
+        lon_prop[vertex] = lon
+        lat_prop[vertex] = lat
+        id_prop[vertex] = node_id
+
+    # Assign the properties to the graph
+    graph.vertex_properties["lon"] = lon_prop
+    graph.vertex_properties["lat"] = lat_prop
+    graph.vertex_properties["node_id"] = id_prop
+
+    print("GETTING EDGES")
+    for index, row in edges.iterrows():
+        source_node = row['u']
+        target_node = row['v']
+
+        if row["length"] < 2 or source_node == "" or target_node == "":
+            continue # Skip edges with empty or missing nodes
+
+        if source_node not in vertex_map or target_node not in vertex_map:
+            print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
+            continue  # Skip edges with missing nodes
+
+        source_vertex = vertex_map[source_node]
+        target_vertex = vertex_map[target_node]
+
+        if not graph.vertex(source_vertex) or not graph.vertex(target_vertex):
+            print(f"Skipping edge with non-existent vertices: {source_vertex} -> {target_vertex}")
+            continue  # Skip edges with non-existent vertices
+
+        graph.add_edge(source_vertex, target_vertex)
+
+    return graph
+
+# AUX FUNCTION
+def print_graph(graph):
+    print("Vertices:")
+    for vertex in graph.vertices():
+        print(f"Vertex ID: {int(vertex)}, lon: {graph.vertex_properties['lon'][vertex]}, lat: {graph.vertex_properties['lat'][vertex]}")
+
+    print("\nEdges:")
+    for edge in graph.edges():
+        source = int(edge.source())
+        target = int(edge.target())
+        print(f"Edge: {source} -> {target}")
+
+graph = get_osm_data()
+#print_graph(graph)
+
+def find_node_by_coordinates(graph, lon, lat):
+    """
+    Finds a node in the graph based on its coordinates (lon, lat).
+
+    Args:
+        graph (graph): the graph containing the node coordinates.
+        lon (float): the longitude of the node.
+        lat (float): the latitude of the node.
+
+    Returns:
+        vertex: the vertex in the graph with the specified coordinates, or None if not found.
+    """
+    for vertex in graph.vertices():
+        if graph.vertex_properties["lon"][vertex] == lon and graph.vertex_properties["lat"][vertex] == lat:
+            return vertex
+    return None
+
+
+vertices = graph.vertices()
+
+#EJEMPLO
+i = 0
+for vertex in vertices:
+    # Realiza las operaciones que desees con cada vértice
+    # Por ejemplo, puedes acceder a las propiedades del vértice utilizando los diccionarios de propiedades
+    if i < 5:
+        lon = graph.vertex_properties["lon"][vertex]
+        lat = graph.vertex_properties["lat"][vertex]
+        print(lon, lat)
+        i+=1
+
+lon = -70.636785
+lat = -33.4369036
+
+geolocator = Nominatim(user_agent="ayatori")
+
+location = geolocator.geocode("Beauchef 850, Santiago, Chile")
+
+node = find_node_by_coordinates(graph, lon, lat)
+if node is not None:
+    direccion = geolocator.reverse((lat,lon))
+    print("El nodo con coordenadas ({}, {}) fue encontrado en el grafo.".format(lon, lat))
+    print("Corresponde a la dirección: {}".format(direccion))
+else:
+    print("El nodo con coordenadas ({}, {}) no fue encontrado en el grafo.".format(lon, lat))
+# FIN EJEMPLO
+
+def find_node_by_id(graph, node_id):
+    """
+    Finds a node in the graph based on its id.
+
+    Args:
+        graph (graph): the graph containing the node coordinates.
+        node_id (long): the id of the node.
+
+    Returns:
+        vertex: the vertex in the graph with the specified id, or None if not found.
+    """
+    for vertex in graph.vertices():
+        if graph.vertex_properties["node_id"][vertex] == node_id:
+            return vertex
+    return None
+
+def find_nearest_node(graph, latitude, longitude):
+    query_point = np.array([longitude, latitude])
+
+    # Obtener las propiedades de vértice 'lon' y 'lat'
+    lon_prop = graph.vertex_properties['lon']
+    lat_prop = graph.vertex_properties['lat']
+
+    # Calcular la distancia euclidiana entre las coordenadas del nodo y la consulta
+    distances = np.linalg.norm(np.vstack((lon_prop.a, lat_prop.a)).T - query_point, axis=1)
+
+    # Encontrar el índice del nodo más cercano
+    nearest_node_index = np.argmin(distances)
+    nearest_node = graph.vertex(nearest_node_index)
+
+    return nearest_node
+
+def address_locator(graph, loc):
+    location = geolocator.geocode(loc)
+    long, lati = location.longitude, location.latitude
+    nearest = find_nearest_node(graph,lati,long)
+    near_lon, near_lat = graph.vertex_properties["lon"][nearest], graph.vertex_properties["lat"][nearest]
+    near_location = geolocator.reverse((near_lat,near_lon))
+    print("Ubicación entregada: {}".format(loc))
+    print("Las coordenadas de la ubicación entregada son ({},{})".format(long,lati))
+    print("El vértice más cercano a la ubicación entregada está en las coordenadas ({},{})".format(near_lon, near_lat))
+    print("Dirección:")
+    print(near_location)
+    return nearest
+
+#address_locator(graph, "Beauchef 850, Santiago")
+
+
+
 def connection_scan(graph, source_address, target_address, departure_time, departure_date):
     """
     The Connection Scan algorithm is applied to search for travel routes from the source to the destination,
@@ -311,27 +305,7 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
         list: the list of travel connections needed to arrive destination.
     """
 
-    def get_node_from_address(address):
-        """
-        Obtains the node in the graph corresponding to the given address.
-
-        Args:
-            address (string): the address to find the corresponding node for.
-
-        Returns:
-            node: the node in the graph corresponding to the address.
-        """
-        geolocator = Nominatim(user_agent="ayatori")
-
-        location = geolocator.geocode(address)
-
-        # Use the address as the node identifier
-        node = location.address
-
-        return node
-    
     connections = []
-    visited = set()
 
     def recursive_dfs(vertex, current_time, current_route):
         """
@@ -340,28 +314,27 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
         if current_time > departure_time:
             return
 
-        visited.add(vertex)
-
         if vertex == target_node:
-            connections.append(current_route.copy())
+            connections.append(current_route[:])  # Append a copy of current_route to connections
             return
 
-        out_neighbors = graph.get_out_neighbors(vertex)
-        for neighbor in out_neighbors:
-            if neighbor not in visited:
-                travel_time = graph.ep['time'][vertex, neighbor]
-                arrival_time = current_time + travel_time
+        out_edges = graph.get_out_edges(vertex)
+        for edge in out_edges:
+            neighbor = edge.target()
+            travel_time = graph.ep['time'][edge]
+            arrival_time = current_time + travel_time
 
+            if arrival_time <= departure_time:
                 current_route.append(neighbor)
-                recursive_dfs(neighbor, arrival_time, current_route)
+                recursive_dfs(neighbor, arrival_time, current_route.copy())  # Pass a copy of current_route
                 current_route.pop()
 
-        visited.remove(vertex)
-
-    source_node = get_node_from_address(source_address)
-    target_node = get_node_from_address(target_address)
+    source_node = address_locator(graph, source_address)
+    target_node = address_locator(graph, target_address)
+    print(source_node)
 
     recursive_dfs(source_node, departure_time, [source_node])
+    print(connections)
     return connections
 
 
