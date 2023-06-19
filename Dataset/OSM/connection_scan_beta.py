@@ -38,6 +38,7 @@ mpl.rcParams["figure.dpi"] = 192
 mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
 
 
+# GTFS
 def get_gtfs_data():
     """
     Reads the GTFS data from a file and creates a directed graph with its info, using the 'pygtfs' library. This gives
@@ -105,6 +106,7 @@ def get_gtfs_data():
     return graph
 
 
+# OSM
 def get_osm_data():
     """
     Obtains the required OpenStreetMap data using the 'pyrosm' library. This gives the map info of Santiago.
@@ -175,6 +177,7 @@ def get_osm_data():
 
         graph.add_edge(source_vertex, target_vertex)
 
+    print("OSM DATA HAS BEEN SUCCESSFULLY RECEIVED")
     return graph
 
 # AUX FUNCTION
@@ -277,18 +280,20 @@ def address_locator(graph, loc):
     nearest = find_nearest_node(graph,lati,long)
     near_lon, near_lat = graph.vertex_properties["lon"][nearest], graph.vertex_properties["lat"][nearest]
     near_location = geolocator.reverse((near_lat,near_lon))
+    near_id = graph.vertex_properties["node_id"][nearest]
     print("Ubicación entregada: {}".format(loc))
     print("Las coordenadas de la ubicación entregada son ({},{})".format(long,lati))
     print("El vértice más cercano a la ubicación entregada está en las coordenadas ({},{})".format(near_lon, near_lat))
-    print("Dirección:")
-    print(near_location)
-    return nearest
+    print("Dirección: {}".format(near_location))
+    print("El id del nodo es {}".format(near_id))
+    return near_id
+
 
 #address_locator(graph, "Beauchef 850, Santiago")
 
 
 
-def connection_scan(graph, source_address, target_address, departure_time, departure_date):
+def connection_scan(graph, source_address, target_address, departure_time, departure_date, max_depth):
     """
     The Connection Scan algorithm is applied to search for travel routes from the source to the destination,
     given a departure time and date. By default, the algorithm uses the current date and time of the system.
@@ -300,25 +305,40 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
         target_address (string): the destination address of the travel.
         departure_time (time): the time at which the travel should start.
         departure_date (date): the date on which the travel should be done.
+        max_depth (int): the maximum depth of the search.
 
     Returns:
-        list: the list of travel connections needed to arrive destination.
+        list: the list of travel connections needed to arrive at the destination.
     """
 
     connections = []
+    current_route = []
+    print("HOLA 1")
 
     def recursive_dfs(vertex, current_time, current_route):
         """
         Performs a recursive Depth-First Search (DFS) from the given vertex with the current time.
         """
-        if current_time > departure_time:
+        print("HOLA 2")
+        departure_seconds = departure_time.hour * 3600 + departure_time.minute * 60 + departure_time.second
+        current_seconds = current_time.hour * 3600 + current_time.minute * 60 + current_time.second
+
+        if current_seconds > departure_seconds or len(current_route) > max_depth:
             return
+        
+        print("HOLA 3")
 
         if vertex == target_node:
             connections.append(current_route[:])  # Append a copy of current_route to connections
             return
+        
+        print("HOLA 4")
 
         out_edges = graph.get_out_edges(vertex)
+        
+        print("HOLA 5")
+        print(out_edges)
+        
         for edge in out_edges:
             neighbor = edge.target()
             travel_time = graph.ep['time'][edge]
@@ -326,18 +346,24 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
             if arrival_time <= departure_time:
                 current_route.append(neighbor)
-                recursive_dfs(neighbor, arrival_time, current_route.copy())  # Pass a copy of current_route
+                current_route_copy = current_route[:]
+                recursive_dfs(neighbor, arrival_time, current_route_copy)
                 current_route.pop()
+                
+        print("HOLA 6")
 
     source_node = address_locator(graph, source_address)
+    print("HOLA 7")
     target_node = address_locator(graph, target_address)
-    print(source_node)
+    print("")
+    
+    print("HOLA 8")
 
     recursive_dfs(source_node, departure_time, [source_node])
-    print(connections)
+    
+    print("HOLA 9")
+    
     return connections
-
-
 
 def csa_commands():
     """
@@ -347,7 +373,7 @@ def csa_commands():
     # System's date and time
     now = datetime.now()
     dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    print("Fecha y hora actuales =", dt_string)
+    #print("Fecha y hora actuales =", dt_string)
 
     # Date formatting
     today = date.today()
@@ -355,6 +381,7 @@ def csa_commands():
 
     # Time formatting
     moment = now.strftime("%H:%M:%S")
+    used_time = datetime.strptime(moment, "%H:%M:%S").time()
 
     # User inputs
     # Date and time
@@ -362,8 +389,9 @@ def csa_commands():
         "Ingresa la fecha del viaje en formato DD/MM/YYY (presiona Enter para usar la fecha actual) : ") or today_format
     print(source_date)
     source_hour = input(
-        "Ingresa la hora del viaje en formato HH:MM:SS (presiona Enter para usar la hora actual) : ") or moment
+        "Ingresa la hora del viaje en formato HH:MM:SS (presiona Enter para usar la hora actual) : ") or used_time
     print(source_hour)
+    ## MODIFICAR ESTO
 
     # Source address
     source_example = "Beauchef 850, Santiago"
@@ -371,7 +399,7 @@ def csa_commands():
         source_address = input(
             "Ingresa dirección de inicio (Ejemplo: 'Beauchef 850, Santiago'. Presiona Enter para usarlo): ") or source_example
         if source_address.strip() != '':
-            print("Dirección de Inicio ingresada: " + source_address)
+            #print("Dirección de Inicio ingresada: " + source_address)
             break
 
     # Destination address
@@ -380,15 +408,14 @@ def csa_commands():
         target_address = input(
             "Ingresa dirección de destino (Ejemplo: 'Pio Nono 1, Providencia'. Presiona Enter para usarlo): ") or destination_example
         if target_address.strip() != '':
-            print("Dirección de Destino ingresada: " + target_address)
+            #print("Dirección de Destino ingresada: " + target_address)
             break
 
     print("Preparando ruta, por favor espere...")
 
-    graph = get_osm_data()
+    #graph = get_osm_data()
 
-    connection_scan(graph, source_address, target_address, source_hour, source_date)
-
+    connection_scan(graph, source_address, target_address, source_hour, source_date, max_depth=1)
 
 # Run
 csa_commands()
