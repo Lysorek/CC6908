@@ -1,24 +1,31 @@
 import sys
+import time
 from pathlib import Path
 from geopy.geocoders import Nominatim
-import pygtfs
-import os
 import pygtfs
 import os
 from graph_tool.all import Graph
 from pyrosm import get_data, OSM
 import graph_tool.all as gt
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import shapely.geometry
+from pyrosm.data import sources
+from datetime import datetime, date, time
+
+from aves.data import eod, census
+from aves.features.utils import normalize_rows
 
 ### CODE: OBTAINING DATA AND AUX FUNCTIONS ###
+
+start = time.time()
+print("GETTING INFO")
 
 # PATHS
 AVES_ROOT = Path("..")
 EOD_PATH = AVES_ROOT / "data" / "external" / "EOD_STGO"
 OSM_PATH = AVES_ROOT / "data" / "external" / "OSM"
-
-# NOMINATIM
-geolocator = Nominatim(user_agent="ayatori")
 
 ## GTFS ##
 
@@ -242,6 +249,7 @@ def find_nearest_node(graph, latitude, longitude):
 
 # Finds the given address in the OSM graph
 def address_locator(graph, loc):
+    geolocator = Nominatim(user_agent="ayatori")
     location = geolocator.geocode(loc)
     long, lati = location.longitude, location.latitude
     nearest = find_nearest_node(graph,lati,long)
@@ -255,20 +263,11 @@ def address_locator(graph, loc):
     print("El id del nodo es {}".format(near_id))
     return near_id
 
+end = time.time()
+exec_time = (end-start) / 60
+print("ALL THE INFO IS READY. EXECUTION TIME: {}".format(exec_time))
 
 ### CODE: CSA ALGORITHM ###
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import geopandas as gpd
-import shapely.geometry
-from pyrosm.data import sources
-from datetime import datetime, date, time
-
-from aves.data import eod, census
-from aves.features.utils import normalize_rows
 
 # Image's quality. Default: 80
 mpl.rcParams["figure.dpi"] = 192
@@ -296,6 +295,14 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
     connections = []
     current_route = []
     print("HOLA 1")
+    print("FINDING SOURCE ADDRESS")
+    source_node = address_locator(graph, source_address)
+    print("FINDING TARGET ADDRESS")
+    target_node = address_locator(graph, target_address)
+    print("ADDRESSES FOUND")
+    print("SOURCE NODE: {}. TARGET NODE: {}.".format(source_node, target_node))
+    print("DEPARTURE TIME: {}".format(departure_time))
+
 
     def recursive_dfs(vertex, current_time, current_route):
         """
@@ -334,14 +341,10 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
         print("HOLA 6")
 
-    source_node = address_locator(graph, source_address)
-    print("HOLA 7")
-    target_node = address_locator(graph, target_address)
-    print("")
-
     print("HOLA 8")
 
-    recursive_dfs(source_node, departure_time, [source_node])
+    current_route = [source_node]
+    recursive_dfs(source_node, departure_time, current_route)
 
     print("HOLA 9")
 
@@ -399,5 +402,5 @@ def csa_commands():
 
     connection_scan(osm_graph, source_address, target_address, source_hour, source_date, max_depth=1)
 
-# Run
+
 csa_commands()
