@@ -1,44 +1,27 @@
 import sys
 from pathlib import Path
-
-AVES_ROOT = Path("..")
-
-EOD_PATH = AVES_ROOT / "data" / "external" / "EOD_STGO"
-OSM_PATH = AVES_ROOT / "data" / "external" / "OSM"
-
-
-import graph_tool.all as gt
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import geopandas as gpd
-import numpy as np
-import shapely.geometry
-from pyrosm import get_data, OSM
-from pyrosm.data import sources
-from datetime import datetime, date, time
-
-from aves.data import eod, census
-from aves.features.utils import normalize_rows
-from aves.models.network import Network
-from aves.visualization.networks import NodeLink
-import graph_tool.search
-import graph_tool.flow
-from aves.visualization.figures import figure_from_geodataframe
 from geopy.geocoders import Nominatim
 import pygtfs
 import os
+import pygtfs
+import os
 from graph_tool.all import Graph
+from pyrosm import get_data, OSM
+import graph_tool.all as gt
+import numpy as np
 
-# Graph Settings
-# Sets the image's quality. The default value is 80.
-mpl.rcParams["figure.dpi"] = 192
-# Sets the font to be used
-mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
+### CODE: OBTAINING DATA AND AUX FUNCTIONS ###
 
+# PATHS
+AVES_ROOT = Path("..")
+EOD_PATH = AVES_ROOT / "data" / "external" / "EOD_STGO"
+OSM_PATH = AVES_ROOT / "data" / "external" / "OSM"
 
-# GTFS
+# NOMINATIM
+geolocator = Nominatim(user_agent="ayatori")
+
+## GTFS ##
+
 def get_gtfs_data():
     """
     Reads the GTFS data from a file and creates a directed graph with its info, using the 'pygtfs' library. This gives
@@ -48,7 +31,7 @@ def get_gtfs_data():
     Returns:
         graph: GTFS data converted to a graph.
     """
-    # Load GTFS data
+    # Create a new schedule object using a GTFS file
     sched = pygtfs.Schedule(":memory:")
     pygtfs.append_feed(sched, "gtfs.zip") # This takes around 2 minutes (01:51.44)
 
@@ -56,12 +39,13 @@ def get_gtfs_data():
     graphs = {}
     stop_id_map = {}  # To assign unique ids to every stop
 
+    print("GETTING GTFS ROUTES...")
     for route in sched.routes:
         graph = Graph(directed=True)
         stop_ids = set()
         trips = [trip for trip in sched.trips if trip.route_id == route.route_id]
 
-        weight_prop = graph.new_edge_property("int")  # The edge's weight will be the id
+        weight_prop = graph.new_edge_property("int")  # Propiedad para almacenar los pesos de las aristas
 
         for trip in trips:
             stop_times = trip.stop_times
@@ -70,10 +54,10 @@ def get_gtfs_data():
                 stop_id = stop_times[i].stop_id
 
                 if stop_id not in stop_id_map:
-                    vertex = graph.add_vertex()  # New empty vertex
-                    stop_id_map[stop_id] = vertex  # Assing the new vertex to the stop id
+                    vertex = graph.add_vertex()  # Añadir un vértice vacío
+                    stop_id_map[stop_id] = vertex  # Asignar el vértice al identificador de parada
                 else:
-                    vertex = stop_id_map[stop_id]  # Obtains the existing vertex
+                    vertex = stop_id_map[stop_id]  # Obtener el vértice existente
 
                 stop_ids.add(vertex)
 
@@ -81,44 +65,52 @@ def get_gtfs_data():
                     next_stop_id = stop_times[i + 1].stop_id
 
                     if next_stop_id not in stop_id_map:
-                        next_vertex = graph.add_vertex()  # Adds a new empty vertex for the next stop
-                        stop_id_map[next_stop_id] = next_vertex  # Assing the new vertex to the stop id
+                        next_vertex = graph.add_vertex()  # Añadir un vértice vacío para la siguiente parada
+                        stop_id_map[next_stop_id] = next_vertex  # Asignar el vértice al identificador de parada
                     else:
-                        next_vertex = stop_id_map[next_stop_id]  # Obtains the existing vertex for the next stop
+                        next_vertex = stop_id_map[next_stop_id]  # Obtener el vértice existente para la siguiente parada
 
-                    e = graph.add_edge(vertex, next_vertex)  # Adds an edge between the stops
-                    weight_prop[e] = 1  # The edge's weight is 1
+                    e = graph.add_edge(vertex, next_vertex)  # Añadir una arista entre las paradas
+                    weight_prop[e] = 1  # Asignar peso 1 a la arista
 
         graphs[route.route_id] = graph
 
+    print("DONE")
+    print("STORING ROUTE GRAPHS...")
+
     # Store graphs into a file
     for route_id, graph in graphs.items():
-        weight_prop = graph.new_edge_property("int")  # Creates a new property (edge's weight)
+        weight_prop = graph.new_edge_property("int")  # Crear una nueva propiedad de peso de arista
 
-        for e in graph.edges():  # For every edge
-            weight_prop[e] = 1  # Assign a weight of 1
+        for e in graph.edges():  # Iterar sobre las aristas del grafo
+            weight_prop[e] = 1  # Asignar el peso 1 a cada arista
 
-        graph.edge_properties["weight"] = weight_prop  # Assing the property to the graph
+        graph.edge_properties["weight"] = weight_prop  # Asignar la propiedad de peso al grafo
 
         graph.save(f"{route_id}.gt")
 
-    #print(stop_id_map.keys())
+    print("GTFS DATA RECEIVED SUCCESSFULLY")
     return graph
 
+# GTFS Graph
+gtfs_graph = get_gtfs_data()
 
-# OSM
+
+## OSM ##
+
 def get_osm_data():
     """
     Obtains the required OpenStreetMap data using the 'pyrosm' library. This gives the map info of Santiago.
 
     Returns:
-        graph: osm data converted to a graph.
+        graph: osm data converted to a graph
     """
+    # Download latest OSM data
     fp = get_data(
         "Santiago",
         update=True,
-        directory=OSM_PATH # In local testing, "C:/Users/felip/Desktop/Universidad/15° Semestre (Otoño 2023)/CC6909-Trabajo de Título/CC6909-Ayatori"
-    ) # This takes around 40 seconds (00:35.06)
+        directory=OSM_PATH
+    )
 
     osm = OSM(fp)
 
@@ -137,7 +129,7 @@ def get_osm_data():
 
     vertex_map = {}
 
-    print("GETTING NODES")
+    print("GETTING OSM NODES...")
     for index, row in nodes.iterrows():
         lon = row['lon']
         lat = row['lat']
@@ -156,7 +148,9 @@ def get_osm_data():
     graph.vertex_properties["lat"] = lat_prop
     graph.vertex_properties["node_id"] = id_prop
 
-    print("GETTING EDGES")
+    print("DONE")
+    print("GETTING OSM EDGES...")
+
     for index, row in edges.iterrows():
         source_node = row['u']
         target_node = row['v']
@@ -180,7 +174,11 @@ def get_osm_data():
     print("OSM DATA HAS BEEN SUCCESSFULLY RECEIVED")
     return graph
 
-# AUX FUNCTION
+# OSM Graph
+osm_graph = get_osm_data()
+osm_vertices = osm_graph.vertices()
+
+# AUX FUNCTION FOR DEBUGGING
 def print_graph(graph):
     print("Vertices:")
     for vertex in graph.vertices():
@@ -192,9 +190,7 @@ def print_graph(graph):
         target = int(edge.target())
         print(f"Edge: {source} -> {target}")
 
-graph = get_osm_data()
-#print_graph(graph)
-
+# AUX FUNCTIONS TO FIND NODES
 def find_node_by_coordinates(graph, lon, lat):
     """
     Finds a node in the graph based on its coordinates (lon, lat).
@@ -211,36 +207,6 @@ def find_node_by_coordinates(graph, lon, lat):
         if graph.vertex_properties["lon"][vertex] == lon and graph.vertex_properties["lat"][vertex] == lat:
             return vertex
     return None
-
-
-vertices = graph.vertices()
-
-#EJEMPLO
-i = 0
-for vertex in vertices:
-    # Realiza las operaciones que desees con cada vértice
-    # Por ejemplo, puedes acceder a las propiedades del vértice utilizando los diccionarios de propiedades
-    if i < 5:
-        lon = graph.vertex_properties["lon"][vertex]
-        lat = graph.vertex_properties["lat"][vertex]
-        print(lon, lat)
-        i+=1
-
-lon = -70.636785
-lat = -33.4369036
-
-geolocator = Nominatim(user_agent="ayatori")
-
-location = geolocator.geocode("Beauchef 850, Santiago, Chile")
-
-node = find_node_by_coordinates(graph, lon, lat)
-if node is not None:
-    direccion = geolocator.reverse((lat,lon))
-    print("El nodo con coordenadas ({}, {}) fue encontrado en el grafo.".format(lon, lat))
-    print("Corresponde a la dirección: {}".format(direccion))
-else:
-    print("El nodo con coordenadas ({}, {}) no fue encontrado en el grafo.".format(lon, lat))
-# FIN EJEMPLO
 
 def find_node_by_id(graph, node_id):
     """
@@ -261,19 +227,20 @@ def find_node_by_id(graph, node_id):
 def find_nearest_node(graph, latitude, longitude):
     query_point = np.array([longitude, latitude])
 
-    # Obtener las propiedades de vértice 'lon' y 'lat'
+    # Obtains vertex properties: 'lon' and 'lat'
     lon_prop = graph.vertex_properties['lon']
     lat_prop = graph.vertex_properties['lat']
 
-    # Calcular la distancia euclidiana entre las coordenadas del nodo y la consulta
+    # Calculates the euclidean distances between the node's coordinates and the consulted address's coordinates
     distances = np.linalg.norm(np.vstack((lon_prop.a, lat_prop.a)).T - query_point, axis=1)
 
-    # Encontrar el índice del nodo más cercano
+    # Finds the nearest node's index
     nearest_node_index = np.argmin(distances)
     nearest_node = graph.vertex(nearest_node_index)
 
     return nearest_node
 
+# Finds the given address in the OSM graph
 def address_locator(graph, loc):
     location = geolocator.geocode(loc)
     long, lati = location.longitude, location.latitude
@@ -281,7 +248,7 @@ def address_locator(graph, loc):
     near_lon, near_lat = graph.vertex_properties["lon"][nearest], graph.vertex_properties["lat"][nearest]
     near_location = geolocator.reverse((near_lat,near_lon))
     near_id = graph.vertex_properties["node_id"][nearest]
-    print("Ubicación entregada: {}".format(loc))
+    #print("Ubicación entregada: {}".format(loc))
     print("Las coordenadas de la ubicación entregada son ({},{})".format(long,lati))
     print("El vértice más cercano a la ubicación entregada está en las coordenadas ({},{})".format(near_lon, near_lat))
     print("Dirección: {}".format(near_location))
@@ -289,9 +256,24 @@ def address_locator(graph, loc):
     return near_id
 
 
-#address_locator(graph, "Beauchef 850, Santiago")
+### CODE: CSA ALGORITHM ###
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import geopandas as gpd
+import shapely.geometry
+from pyrosm.data import sources
+from datetime import datetime, date, time
 
+from aves.data import eod, census
+from aves.features.utils import normalize_rows
+
+# Image's quality. Default: 80
+mpl.rcParams["figure.dpi"] = 192
+# Fonts
+mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
 
 def connection_scan(graph, source_address, target_address, departure_time, departure_date, max_depth):
     """
@@ -325,20 +307,20 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
         if current_seconds > departure_seconds or len(current_route) > max_depth:
             return
-        
+
         print("HOLA 3")
 
         if vertex == target_node:
             connections.append(current_route[:])  # Append a copy of current_route to connections
             return
-        
+
         print("HOLA 4")
 
         out_edges = graph.get_out_edges(vertex)
-        
+
         print("HOLA 5")
         print(out_edges)
-        
+
         for edge in out_edges:
             neighbor = edge.target()
             travel_time = graph.ep['time'][edge]
@@ -349,20 +331,20 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
                 current_route_copy = current_route[:]
                 recursive_dfs(neighbor, arrival_time, current_route_copy)
                 current_route.pop()
-                
+
         print("HOLA 6")
 
     source_node = address_locator(graph, source_address)
     print("HOLA 7")
     target_node = address_locator(graph, target_address)
     print("")
-    
+
     print("HOLA 8")
 
     recursive_dfs(source_node, departure_time, [source_node])
-    
+
     print("HOLA 9")
-    
+
     return connections
 
 def csa_commands():
@@ -415,7 +397,7 @@ def csa_commands():
 
     #graph = get_osm_data()
 
-    connection_scan(graph, source_address, target_address, source_hour, source_date, max_depth=1)
+    connection_scan(osm_graph, source_address, target_address, source_hour, source_date, max_depth=1)
 
 # Run
 csa_commands()
