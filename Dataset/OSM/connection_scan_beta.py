@@ -264,6 +264,15 @@ def address_locator(graph, loc):
     print("El id del nodo es {}".format(near_id))
     return nearest
 
+
+def create_node_id_mapping(graph):
+    node_id_mapping = {}
+    node_id_prop = graph.vertex_properties["node_id"]
+    for v in graph.vertices():
+        node_id = node_id_prop[v]
+        node_id_mapping[node_id] = int(v)
+    return node_id_mapping
+
 end = time.time()
 exec_time = (end-start) / 60
 print("ALL THE INFO IS READY. EXECUTION TIME: {} MINUTES".format(exec_time))
@@ -293,13 +302,13 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
         list: the list of travel connections needed to arrive at the destination.
     """
 
-    connections = []
-    current_route = []
+    node_id_mapping = create_node_id_mapping(graph)
 
-    print("FINDING SOURCE ADDRESS")
-    source_node = address_locator(graph, source_address)
-    print("FINDING TARGET ADDRESS")
-    target_node = address_locator(graph, target_address)
+    source_node_id = address_locator(graph, source_address)
+    target_node_id = address_locator(graph, target_address)
+
+    source_node = node_id_mapping[source_node_id]
+    target_node = node_id_mapping[target_node_id]
     print("ADDRESSES FOUND")
     print("SOURCE NODE: {}. TARGET NODE: {}.".format(source_node, target_node))
     print("DEPARTURE TIME: {}".format(departure_time))
