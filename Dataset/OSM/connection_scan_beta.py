@@ -5,6 +5,7 @@ from geopy.geocoders import Nominatim
 import pygtfs
 import os
 from graph_tool.all import Graph
+from graph_tool.topology import shortest_distance, shortest_path
 from pyrosm import get_data, OSM
 import graph_tool.all as gt
 import numpy as np
@@ -261,11 +262,11 @@ def address_locator(graph, loc):
     print("El vértice más cercano a la ubicación entregada está en las coordenadas ({},{})".format(near_lon, near_lat))
     print("Dirección: {}".format(near_location))
     print("El id del nodo es {}".format(near_id))
-    return near_id
+    return nearest
 
 end = time.time()
 exec_time = (end-start) / 60
-print("ALL THE INFO IS READY. EXECUTION TIME: {}".format(exec_time))
+print("ALL THE INFO IS READY. EXECUTION TIME: {} MINUTES".format(exec_time))
 
 ### CODE: CSA ALGORITHM ###
 
@@ -274,7 +275,7 @@ mpl.rcParams["figure.dpi"] = 192
 # Fonts
 mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
 
-def connection_scan(graph, source_address, target_address, departure_time, departure_date, max_depth):
+def connection_scan(graph, source_address, target_address, departure_time, departure_date):
     """
     The Connection Scan algorithm is applied to search for travel routes from the source to the destination,
     given a departure time and date. By default, the algorithm uses the current date and time of the system.
@@ -294,7 +295,7 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
     connections = []
     current_route = []
-    print("HOLA 1")
+
     print("FINDING SOURCE ADDRESS")
     source_node = address_locator(graph, source_address)
     print("FINDING TARGET ADDRESS")
@@ -303,52 +304,10 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
     print("SOURCE NODE: {}. TARGET NODE: {}.".format(source_node, target_node))
     print("DEPARTURE TIME: {}".format(departure_time))
 
+    path = shortest_path(graph, source_node, target_node)
 
-    def recursive_dfs(vertex, current_time, current_route):
-        """
-        Performs a recursive Depth-First Search (DFS) from the given vertex with the current time.
-        """
-        print("HOLA 2")
-        departure_seconds = departure_time.hour * 3600 + departure_time.minute * 60 + departure_time.second
-        current_seconds = current_time.hour * 3600 + current_time.minute * 60 + current_time.second
+    return path
 
-        if current_seconds > departure_seconds or len(current_route) > max_depth:
-            return
-
-        print("HOLA 3")
-
-        if vertex == target_node:
-            connections.append(current_route[:])  # Append a copy of current_route to connections
-            return
-
-        print("HOLA 4")
-
-        out_edges = graph.get_out_edges(vertex)
-
-        print("HOLA 5")
-        print(out_edges)
-
-        for edge in out_edges:
-            neighbor = edge.target()
-            travel_time = graph.ep['time'][edge]
-            arrival_time = current_time + travel_time
-
-            if arrival_time <= departure_time:
-                current_route.append(neighbor)
-                current_route_copy = current_route[:]
-                recursive_dfs(neighbor, arrival_time, current_route_copy)
-                current_route.pop()
-
-        print("HOLA 6")
-
-    print("HOLA 8")
-
-    current_route = [source_node]
-    recursive_dfs(source_node, departure_time, current_route)
-
-    print("HOLA 9")
-
-    return connections
 
 def csa_commands():
     """
@@ -398,9 +357,8 @@ def csa_commands():
 
     print("Preparando ruta, por favor espere...")
 
-    #graph = get_osm_data()
-
-    connection_scan(osm_graph, source_address, target_address, source_hour, source_date, max_depth=1)
+    result = connection_scan(osm_graph, source_address, target_address, source_hour, source_date)
+    return result
 
 
 csa_commands()
