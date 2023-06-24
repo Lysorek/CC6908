@@ -133,7 +133,11 @@ def get_osm_data():
     # Create vertex properties for lon and lat
     lon_prop = graph.new_vertex_property("float")
     lat_prop = graph.new_vertex_property("float")
-    id_prop = graph.new_vertex_property("long")
+    node_id_prop = graph.new_vertex_property("long")
+    graph_id_prop = graph.new_vertex_property("long")
+
+    # Create edge properties
+    length_prop = graph.new_edge_property("double")
 
     vertex_map = {}
 
@@ -142,6 +146,7 @@ def get_osm_data():
         lon = row['lon']
         lat = row['lat']
         node_id = row['id']
+        graph_id = index
 
         vertex = graph.add_vertex()
         vertex_map[node_id] = vertex
@@ -149,12 +154,14 @@ def get_osm_data():
         # Assigning node properties
         lon_prop[vertex] = lon
         lat_prop[vertex] = lat
-        id_prop[vertex] = node_id
+        node_id_prop[vertex] = node_id
+        graph_id_prop[vertex] = graph_id
 
     # Assign the properties to the graph
     graph.vertex_properties["lon"] = lon_prop
     graph.vertex_properties["lat"] = lat_prop
-    graph.vertex_properties["node_id"] = id_prop
+    graph.vertex_properties["node_id"] = node_id_prop
+    graph.vertex_properties["graph_id"] = graph_id_prop
 
     print("DONE")
     print("GETTING OSM EDGES...")
@@ -177,10 +184,14 @@ def get_osm_data():
             print(f"Skipping edge with non-existent vertices: {source_vertex} -> {target_vertex}")
             continue  # Skip edges with non-existent vertices
 
-        graph.add_edge(source_vertex, target_vertex)
+        e = graph.add_edge(source_vertex, target_vertex)
+        length_prop[e] = row["length"]
+
+    graph.edge_properties["length"] = length_prop
 
     print("OSM DATA HAS BEEN SUCCESSFULLY RECEIVED")
     return graph
+
 
 # OSM Graph
 osm_graph = get_osm_data()
@@ -257,11 +268,13 @@ def address_locator(graph, loc):
     near_lon, near_lat = graph.vertex_properties["lon"][nearest], graph.vertex_properties["lat"][nearest]
     near_location = geolocator.reverse((near_lat,near_lon))
     near_id = graph.vertex_properties["node_id"][nearest]
+    graph_id = graph.vertex_properties["graph_id"][nearest]
     #print("Ubicación entregada: {}".format(loc))
     print("Las coordenadas de la ubicación entregada son ({},{})".format(long,lati))
     print("El vértice más cercano a la ubicación entregada está en las coordenadas ({},{})".format(near_lon, near_lat))
     print("Dirección: {}".format(near_location))
     print("El id del nodo es {}".format(near_id))
+    print("El id en el grafo es {}".format(graph_id))
     return nearest
 
 
@@ -270,7 +283,7 @@ def create_node_id_mapping(graph):
     node_id_prop = graph.vertex_properties["node_id"]
     for v in graph.vertices():
         node_id = node_id_prop[v]
-        node_id_mapping[node_id] = int(v)
+        node_id_mapping[int(v)] = node_id
     return node_id_mapping
 
 end = time.time()
@@ -304,16 +317,20 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
     node_id_mapping = create_node_id_mapping(graph)
 
-    source_node_id = address_locator(graph, source_address)
-    target_node_id = address_locator(graph, target_address)
+    source_node = address_locator(graph, source_address)
+    target_node = address_locator(graph, target_address)
 
-    source_node = node_id_mapping[source_node_id]
-    target_node = node_id_mapping[target_node_id]
+    # Convert source and target node IDs to integers
+    source_node_graph_id = graph.vertex_properties["graph_id"][source_node]
+
+    target_node_graph_id = graph.vertex_properties["graph_id"][target_node]
+
+
     print("ADDRESSES FOUND")
-    print("SOURCE NODE: {}. TARGET NODE: {}.".format(source_node, target_node))
+    print("SOURCE NODE: {}. TARGET NODE: {}.".format(source_node_graph_id, target_node_graph_id))
     print("DEPARTURE TIME: {}".format(departure_time))
 
-    path = shortest_path(graph, source_node, target_node)
+    path = shortest_path(graph, source_node_graph_id, target_node_graph_id)
 
     return path
 
