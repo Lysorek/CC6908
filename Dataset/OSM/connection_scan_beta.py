@@ -4,16 +4,16 @@ from pathlib import Path
 from geopy.geocoders import Nominatim
 import pygtfs
 import os
-from graph_tool.all import Graph
+from graph_tool.all import *
 from graph_tool.topology import shortest_distance, shortest_path
 from pyrosm import get_data, OSM
-import graph_tool.all as gt
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import shapely.geometry
+from datetime import datetime, date
 from pyrosm.data import sources
-from datetime import datetime, date, time
+from queue import Queue
 
 from aves.data import eod, census
 from aves.features.utils import normalize_rows
@@ -128,7 +128,7 @@ def get_osm_data():
     coordinates = nodes[['lon', 'lat']].values
     ids = nodes['id'].values
 
-    graph = gt.Graph()
+    graph = Graph()
 
     # Create vertex properties for lon and lat
     lon_prop = graph.new_vertex_property("float")
@@ -285,6 +285,97 @@ def create_node_id_mapping(graph):
         node_id = node_id_prop[v]
         node_id_mapping[int(v)] = node_id
     return node_id_mapping
+
+def create_edge_mapping(graph):
+    edge_mapping = {}
+    node_id_prop = graph.vertex_properties["graph_id"]
+    for e in graph.edges():
+        source_vertex, target_vertex = e.source(), e.target()
+        source_node_id = node_id_prop[source_vertex]
+        target_node_id = node_id_prop[target_vertex]
+        edge_index = graph.edge_index[e]
+        edge_mapping[edge_index] = (source_node_id, target_node_id)
+    return edge_mapping
+
+#node_mapping = create_node_id_mapping(osm_graph)
+
+#edge_mapping = create_edge_mapping(osm_graph)#678892 709089
+#for edge_index, (source_node, target_node) in edge_mapping.items():
+#    print("Edge {}: {} -> {}".format(edge_index, source_node, target_node))
+
+def edge_count(graph, vertex):
+    v = graph.vertex(vertex)
+    out_degree = v.out_degree()
+    in_degree = v.in_degree()
+    degree = out_degree + in_degree
+    return degree
+
+#v = 709089  # Índice del vértice deseado
+#degree = edge_count(osm_graph, v)
+#print("Número de aristas entrantes al vértice {}: {}".format(v, v.in_degree()))
+#print("Número de aristas salientes del vértice {}: {}".format(v, v.out_degree()))
+#print("Número de aristas total del nodo {}: {}".format(v, degree))
+
+def get_largest_component(component_sizes):
+    largest_size = max(component_sizes)
+    largest_component = [i for i, size in enumerate(component_sizes) if size == largest_size]
+    return largest_component
+
+
+def analyze_connectivity(graph):
+    # Verificar si el grafo es conexo
+    is_graph_connected = graph.num_edges() == graph.num_vertices() - 1
+    print("El grafo es conexo:", is_graph_connected)
+
+    # Obtener los componentes conectados utilizando la función label_components()
+    components = label_components(graph)[0]
+
+    # Contar el número de componentes conectados
+    num_components = len(set(components))
+    print("Número de componentes conectados:", num_components)
+    #print("Componentes conectados:", set(components))
+
+    # Obtener el tamaño de cada componente
+    component_sizes = []
+    for component_id in set(components):
+        size = np.sum(components == component_id)
+        component_sizes.append(size)
+
+    #print("Tamaño de cada componente:")
+    #for component_id, size in enumerate(component_sizes):
+    #    print("Componente {}: {}".format(component_id, size))
+
+    # Obtener los componentes aislados
+    isolated_components = [i for i, size in enumerate(component_sizes) if size == 1]
+    print("Número de componentes aislados:", len(isolated_components))
+    #print("Componentes aislados:", isolated_components)
+
+    # Obtener el componente más grande
+    largest_component = get_largest_component(component_sizes)
+    largest_component_size = largest_component[0]
+    print("Componente más grande: tamaño:", largest_component_size)
+
+
+# Analizar la conectividad del grafo
+analyze_connectivity(osm_graph)
+
+def make_undirected(graph):
+    undirected_graph = gt.Graph(directed=False)
+    vprop_map = graph.new_vertex_property("object")
+
+    for v in graph.vertices():
+        new_v = undirected_graph.add_vertex()
+        vprop_map[new_v] = v
+
+    for e in graph.edges():
+        source, target = e.source(), e.target()
+        undirected_graph.add_edge(vprop_map[source], vprop_map[target])
+
+    return undirected_graph
+
+# Convertir el grafo en no dirigido
+undirected_graph = make_undirected(osm_graph)
+
 
 end = time.time()
 exec_time = (end-start) / 60
