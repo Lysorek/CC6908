@@ -14,6 +14,9 @@ import shapely.geometry
 from datetime import datetime, date
 from pyrosm.data import sources
 from queue import Queue
+from scipy.spatial.distance import euclidean
+import heapq
+from collections import defaultdict
 
 from aves.data import eod, census
 from aves.features.utils import normalize_rows
@@ -124,10 +127,6 @@ def get_osm_data():
 
     nodes, edges = osm.get_network(nodes=True)
 
-    column_names_list = list(nodes.columns)
-    coordinates = nodes[['lon', 'lat']].values
-    ids = nodes['id'].values
-
     graph = Graph()
 
     # Create vertex properties for lon and lat
@@ -137,7 +136,10 @@ def get_osm_data():
     graph_id_prop = graph.new_vertex_property("long")
 
     # Create edge properties
+    u_prop = graph.new_edge_property("long")
+    v_prop = graph.new_edge_property("long")
     length_prop = graph.new_edge_property("double")
+    weight_prop = graph.new_edge_property("double")
 
     vertex_map = {}
 
@@ -184,10 +186,21 @@ def get_osm_data():
             print(f"Skipping edge with non-existent vertices: {source_vertex} -> {target_vertex}")
             continue  # Skip edges with non-existent vertices
 
-        e = graph.add_edge(source_vertex, target_vertex)
-        length_prop[e] = row["length"]
+        # Calculate the distance between the nodes and use it as the weight of the edge
+        source_coords = (nodes.loc[nodes['id'] == source_node, 'lat'].iloc[0], nodes.loc[nodes['id'] == source_node, 'lon'].iloc[0])
+        target_coords = (nodes.loc[nodes['id'] == target_node, 'lat'].iloc[0], nodes.loc[nodes['id'] == target_node, 'lon'].iloc[0])
+        distance = euclidean(source_coords, target_coords)
 
+        e = graph.add_edge(source_vertex, target_vertex)
+        u_prop[e] = source_node
+        v_prop[e] = target_node
+        length_prop[e] = row["length"]
+        weight_prop[e] = distance
+
+    graph.edge_properties["u"] = u_prop
+    graph.edge_properties["v"] = v_prop
     graph.edge_properties["length"] = length_prop
+    graph.edge_properties["weight"] = weight_prop
 
     print("OSM DATA HAS BEEN SUCCESSFULLY RECEIVED")
     return graph
@@ -360,16 +373,67 @@ def analyze_connectivity(graph):
 analyze_connectivity(osm_graph)
 
 def make_undirected(graph):
-    undirected_graph = gt.Graph(directed=False)
+    undirected_graph = Graph(directed=False)
     vprop_map = graph.new_vertex_property("object")
+
+    # Create vertex properties for lon and lat
+    lon_prop = undirected_graph.new_vertex_property("float")
+    lat_prop = undirected_graph.new_vertex_property("float")
+    node_id_prop = undirected_graph.new_vertex_property("long")
+    graph_id_prop = undirected_graph.new_vertex_property("long")
+
+    # Create edge properties
+    length_prop = undirected_graph.new_edge_property("double")
+
+    undirected_vertex_map = {}
 
     for v in graph.vertices():
         new_v = undirected_graph.add_vertex()
         vprop_map[new_v] = v
+        lon = graph.vertex_properties["lon"][v]
+        lat = graph.vertex_properties["lat"][v]
+        node_id = graph.vertex_properties["node_id"][v]
+        graph_id = graph.vertex_properties["graph_id"][v]
+
+        undirected_vertex_map[node_id] = new_v
+        #print("NODO {} EN GRAFO {}".format(node_id, graph_id))
+
+        # Assigning node properties
+        lon_prop[new_v] = lon
+        lat_prop[new_v] = lat
+        node_id_prop[new_v] = node_id
+        graph_id_prop[new_v] = graph_id
+
+    # Assign the properties to the graph
+    undirected_graph.vertex_properties["lon"] = lon_prop
+    undirected_graph.vertex_properties["lat"] = lat_prop
+    undirected_graph.vertex_properties["node_id"] = node_id_prop
+    undirected_graph.vertex_properties["graph_id"] = graph_id_prop
 
     for e in graph.edges():
         source, target = e.source(), e.target()
-        undirected_graph.add_edge(vprop_map[source], vprop_map[target])
+        source_node = graph.edge_properties["u"][e]
+        target_node = graph.edge_properties["v"][e]
+        lgt = graph.edge_properties["length"][e]
+
+        if lgt < 2 or source_node == "" or target_node == "":
+            continue # Skip edges with empty or missing nodes
+
+        if source_node not in undirected_vertex_map or target_node not in undirected_vertex_map:
+            print(f"Skipping edge with missing nodes: {source_node} -> {target_node}")
+            continue  # Skip edges with missing nodes
+
+        source_vertex = undirected_vertex_map[source_node]
+        target_vertex = undirected_vertex_map[target_node]
+
+        if not undirected_graph.vertex(source_vertex) or not undirected_graph.vertex(target_vertex):
+            print(f"Skipping edge with non-existent vertices: {source_vertex} -> {target_vertex}")
+            continue  # Skip edges with non-existent vertices
+
+        e = undirected_graph.add_edge(source_vertex, target_vertex)
+        length_prop[e] = lgt
+
+    undirected_graph.edge_properties["length"] = length_prop
 
     return undirected_graph
 
@@ -388,6 +452,56 @@ mpl.rcParams["figure.dpi"] = 192
 # Fonts
 mpl.rcParams["font.family"] = "Fira Sans Extra Condensed"
 
+def dijkstra(graph, start, end):
+    """
+    Find the shortest path between two nodes in a graph using Dijkstra's algorithm.
+
+    Args:
+        graph (dict): the graph represented as a dictionary of nodes and their neighbors.
+        start (int): the starting node.
+        end (int): the ending node.
+
+    Returns:
+        list: the shortest path between the starting and ending nodes.
+    """
+    # Initialize the distances and visited nodes
+    distances = {node: float('inf') for node in graph}
+    distances[start] = 0
+    visited = set()
+
+    # Initialize the priority queue with the starting node
+    pq = [(0, start, [])]
+
+    while pq:
+        # Get the node with the smallest distance from the starting node
+        (dist, node, path) = heapq.heappop(pq)
+
+        # If we've already visited this node, skip it
+        if node in visited:
+            continue
+
+        # Add the node to the visited set
+        visited.add(node)
+
+        # Add the node to the path
+        path = path + [node]
+
+        # If we've reached the end node, return the path
+        if node == end:
+            return path
+
+        # Update the distances of the neighbors of the current node
+        for neighbor, weight in graph[node].items():
+            if neighbor not in visited:
+                new_distance = dist + weight
+                if new_distance < distances[neighbor]:
+                    distances[neighbor] = new_distance
+                    heapq.heappush(pq, (new_distance, neighbor, path))
+
+    # If we didn't find a path, return an empty list
+    return []
+
+
 def connection_scan(graph, source_address, target_address, departure_time, departure_date):
     """
     The Connection Scan algorithm is applied to search for travel routes from the source to the destination,
@@ -405,7 +519,6 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
     Returns:
         list: the list of travel connections needed to arrive at the destination.
     """
-
     node_id_mapping = create_node_id_mapping(graph)
 
     source_node = address_locator(graph, source_address)
@@ -413,15 +526,32 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
 
     # Convert source and target node IDs to integers
     source_node_graph_id = graph.vertex_properties["graph_id"][source_node]
-
     target_node_graph_id = graph.vertex_properties["graph_id"][target_node]
-
 
     print("ADDRESSES FOUND")
     print("SOURCE NODE: {}. TARGET NODE: {}.".format(source_node_graph_id, target_node_graph_id))
     print("DEPARTURE TIME: {}".format(departure_time))
 
-    path = shortest_path(graph, source_node_graph_id, target_node_graph_id)
+    # Convert the graph to a dictionary of nodes and their neighbors
+    graph_dict = defaultdict(dict)
+    for edge in graph.edges():
+        u, v = edge.source(), edge.target()
+        weight = graph.edge_properties["weight"][edge]
+        graph_dict[u][v] = weight
+
+    # Find the shortest path using Dijkstra's algorithm
+    path = dijkstra(graph_dict, source_node_graph_id, target_node_graph_id)
+
+    # Convert the path to a list of node IDs
+    path = [graph.vertex(node_id) for node_id in path]
+    path = [graph.vertex_properties["graph_id"][node] for node in path]
+
+    print("RECONSTRUCTED PATH:")
+    for v in path:
+        print(node_id_mapping[v], end=" -> ")
+    print()
+
+    #path = shortest_path(graph, source_node_graph_id, target_node_graph_id)
 
     return path
 
@@ -474,8 +604,11 @@ def csa_commands():
 
     print("Preparando ruta, por favor espere...")
 
-    result = connection_scan(osm_graph, source_address, target_address, source_hour, source_date)
-    return result
+    print("CON GRAFO ORIGINAL")
+    result1 = connection_scan(osm_graph, source_address, target_address, source_hour, source_date)
+    print("CON GRAFO MODIFICADO")
+    result2 = connection_scan(undirected_graph, source_address, target_address, source_hour, source_date)
+    return result1, result2
 
 
 csa_commands()
