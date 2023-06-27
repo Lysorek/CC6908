@@ -14,7 +14,6 @@ import shapely.geometry
 from datetime import datetime, date
 from pyrosm.data import sources
 from queue import Queue
-from scipy.spatial.distance import euclidean
 import heapq
 from collections import defaultdict
 
@@ -132,6 +131,9 @@ def get_osm_data():
     # Create vertex properties for lon and lat
     lon_prop = graph.new_vertex_property("float")
     lat_prop = graph.new_vertex_property("float")
+
+    # Create properties for the ids
+    # Every OSM node has its unique id, different from the one given in the graph
     node_id_prop = graph.new_vertex_property("long")
     graph_id_prop = graph.new_vertex_property("long")
 
@@ -149,6 +151,7 @@ def get_osm_data():
         lat = row['lat']
         node_id = row['id']
         graph_id = index
+        node_coords[node_id] = (lat, lon)
 
         vertex = graph.add_vertex()
         vertex_map[node_id] = vertex
@@ -187,9 +190,9 @@ def get_osm_data():
             continue  # Skip edges with non-existent vertices
 
         # Calculate the distance between the nodes and use it as the weight of the edge
-        source_coords = (nodes.loc[nodes['id'] == source_node, 'lat'].iloc[0], nodes.loc[nodes['id'] == source_node, 'lon'].iloc[0])
-        target_coords = (nodes.loc[nodes['id'] == target_node, 'lat'].iloc[0], nodes.loc[nodes['id'] == target_node, 'lon'].iloc[0])
-        distance = euclidean(source_coords, target_coords)
+        source_coords = node_coords[source_node]
+        target_coords = node_coords[target_node]
+        distance = abs(source_coords[0] - target_coords[0]) + abs(source_coords[1] - target_coords[1])
 
         e = graph.add_edge(source_vertex, target_vertex)
         u_prop[e] = source_node
@@ -207,6 +210,7 @@ def get_osm_data():
 
 
 # OSM Graph
+node_coords = {}
 osm_graph = get_osm_data()
 osm_vertices = osm_graph.vertices()
 
@@ -290,45 +294,6 @@ def address_locator(graph, loc):
     print("El id en el grafo es {}".format(graph_id))
     return nearest
 
-
-def create_node_id_mapping(graph):
-    node_id_mapping = {}
-    node_id_prop = graph.vertex_properties["node_id"]
-    for v in graph.vertices():
-        node_id = node_id_prop[v]
-        node_id_mapping[int(v)] = node_id
-    return node_id_mapping
-
-def create_edge_mapping(graph):
-    edge_mapping = {}
-    node_id_prop = graph.vertex_properties["graph_id"]
-    for e in graph.edges():
-        source_vertex, target_vertex = e.source(), e.target()
-        source_node_id = node_id_prop[source_vertex]
-        target_node_id = node_id_prop[target_vertex]
-        edge_index = graph.edge_index[e]
-        edge_mapping[edge_index] = (source_node_id, target_node_id)
-    return edge_mapping
-
-#node_mapping = create_node_id_mapping(osm_graph)
-
-#edge_mapping = create_edge_mapping(osm_graph)#678892 709089
-#for edge_index, (source_node, target_node) in edge_mapping.items():
-#    print("Edge {}: {} -> {}".format(edge_index, source_node, target_node))
-
-def edge_count(graph, vertex):
-    v = graph.vertex(vertex)
-    out_degree = v.out_degree()
-    in_degree = v.in_degree()
-    degree = out_degree + in_degree
-    return degree
-
-#v = 709089  # Índice del vértice deseado
-#degree = edge_count(osm_graph, v)
-#print("Número de aristas entrantes al vértice {}: {}".format(v, v.in_degree()))
-#print("Número de aristas salientes del vértice {}: {}".format(v, v.out_degree()))
-#print("Número de aristas total del nodo {}: {}".format(v, degree))
-
 def get_largest_component(component_sizes):
     largest_size = max(component_sizes)
     largest_component = [i for i, size in enumerate(component_sizes) if size == largest_size]
@@ -371,6 +336,44 @@ def analyze_connectivity(graph):
 
 # Analizar la conectividad del grafo
 analyze_connectivity(osm_graph)
+
+def create_node_id_mapping(graph):
+    node_id_mapping = {}
+    node_id_prop = graph.vertex_properties["node_id"]
+    for v in graph.vertices():
+        node_id = node_id_prop[v]
+        node_id_mapping[int(v)] = node_id
+    return node_id_mapping
+
+def create_edge_mapping(graph):
+    edge_mapping = {}
+    node_id_prop = graph.vertex_properties["graph_id"]
+    for e in graph.edges():
+        source_vertex, target_vertex = e.source(), e.target()
+        source_node_id = node_id_prop[source_vertex]
+        target_node_id = node_id_prop[target_vertex]
+        edge_index = graph.edge_index[e]
+        edge_mapping[edge_index] = (source_node_id, target_node_id)
+    return edge_mapping
+
+#node_mapping = create_node_id_mapping(osm_graph)
+
+#edge_mapping = create_edge_mapping(osm_graph)#678892 709089
+#for edge_index, (source_node, target_node) in edge_mapping.items():
+#    print("Edge {}: {} -> {}".format(edge_index, source_node, target_node))
+
+def edge_count(graph, vertex):
+    v = graph.vertex(vertex)
+    out_degree = v.out_degree()
+    in_degree = v.in_degree()
+    degree = out_degree + in_degree
+    return degree
+
+#v = 709089  # Índice del vértice deseado
+#degree = edge_count(osm_graph, v)
+#print("Número de aristas entrantes al vértice {}: {}".format(v, v.in_degree()))
+#print("Número de aristas salientes del vértice {}: {}".format(v, v.out_degree()))
+#print("Número de aristas total del nodo {}: {}".format(v, degree))
 
 def make_undirected(graph):
     undirected_graph = Graph(directed=False)
