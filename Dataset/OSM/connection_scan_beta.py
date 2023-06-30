@@ -386,7 +386,10 @@ def make_undirected(graph):
     graph_id_prop = undirected_graph.new_vertex_property("long")
 
     # Create edge properties
+    u_prop = undirected_graph.new_edge_property("long")
+    v_prop = undirected_graph.new_edge_property("long")
     length_prop = undirected_graph.new_edge_property("double")
+    weight_prop = undirected_graph.new_edge_property("double")
 
     undirected_vertex_map = {}
 
@@ -413,11 +416,13 @@ def make_undirected(graph):
     undirected_graph.vertex_properties["node_id"] = node_id_prop
     undirected_graph.vertex_properties["graph_id"] = graph_id_prop
 
+
     for e in graph.edges():
         source, target = e.source(), e.target()
         source_node = graph.edge_properties["u"][e]
         target_node = graph.edge_properties["v"][e]
         lgt = graph.edge_properties["length"][e]
+        wt = graph.edge_properties["weight"][e]
 
         if lgt < 2 or source_node == "" or target_node == "":
             continue # Skip edges with empty or missing nodes
@@ -434,9 +439,15 @@ def make_undirected(graph):
             continue  # Skip edges with non-existent vertices
 
         e = undirected_graph.add_edge(source_vertex, target_vertex)
+        u_prop[e] = source_node
+        v_prop[e] = target_node
         length_prop[e] = lgt
+        weight_prop[e] = wt
 
+    undirected_graph.edge_properties["u"] = u_prop
+    undirected_graph.edge_properties["v"] = v_prop
     undirected_graph.edge_properties["length"] = length_prop
+    undirected_graph.edge_properties["weight"] = weight_prop
 
     return undirected_graph
 
