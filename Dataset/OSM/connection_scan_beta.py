@@ -16,6 +16,7 @@ from pyrosm.data import sources
 from queue import Queue
 import heapq
 from collections import defaultdict
+import graphviz
 
 from aves.data import eod, census
 from aves.features.utils import normalize_rows
@@ -547,25 +548,25 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
     print("DEPARTURE TIME: {}".format(departure_time))
 
     # Convert the graph to a dictionary of nodes and their neighbors
-    graph_dict = defaultdict(dict)
-    for edge in graph.edges():
-        u, v = edge.source(), edge.target()
-        weight = graph.edge_properties["weight"][edge]
-        graph_dict[u][v] = weight
+    #graph_dict = defaultdict(dict)
+    #for edge in graph.edges():
+    #    u, v = edge.source(), edge.target()
+    #    weight = graph.edge_properties["weight"][edge]
+    #    graph_dict[u][v] = weight
 
     # Find the shortest path using Dijkstra's algorithm
-    path = dijkstra(graph_dict, source_node_graph_id, target_node_graph_id)
+    #path = dijkstra(graph_dict, source_node_graph_id, target_node_graph_id)
 
     # Convert the path to a list of node IDs
-    path = [graph.vertex(node_id) for node_id in path]
-    path = [graph.vertex_properties["graph_id"][node] for node in path]
+    #path = [graph.vertex(node_id) for node_id in path]
+    #path = [graph.vertex_properties["graph_id"][node] for node in path]
 
-    print("RECONSTRUCTED PATH:")
-    for v in path:
-        print(node_id_mapping[v], end=" -> ")
-    print()
+    #print("RECONSTRUCTED PATH:")
+    #for v in path:
+    #    print(node_id_mapping[v], end=" -> ")
+    #print()
 
-    #path = shortest_path(graph, source_node_graph_id, target_node_graph_id)
+    path = shortest_path(graph, source_node_graph_id, target_node_graph_id)
 
     return path
 
@@ -618,11 +619,22 @@ def csa_commands():
 
     print("Preparando ruta, por favor espere...")
 
-    print("CON GRAFO ORIGINAL")
-    result1 = connection_scan(osm_graph, source_address, target_address, source_hour, source_date)
-    print("CON GRAFO MODIFICADO")
-    result2 = connection_scan(undirected_graph, source_address, target_address, source_hour, source_date)
-    return result1, result2
+    #print("CON GRAFO ORIGINAL")
+    #result1 = connection_scan(osm_graph, source_address, target_address, source_hour, source_date)
+    #print("CON GRAFO MODIFICADO")
 
+    path = connection_scan(undirected_graph, source_address, target_address, source_hour, source_date)
+    path_nodes = path[0]
+    path_edges = path[1]
+    geolocator = Nominatim(user_agent="ayatori")
+    nod = []
+    for node in path_nodes:
+        lon, lat = undirected_graph.vertex_properties["lon"][node], undirected_graph.vertex_properties["lat"][node]
+        location = geolocator.reverse((lat,lon))
+        if location not in nod:
+            nod.append(location)
+            print(location)
+
+    return path
 
 csa_commands()
