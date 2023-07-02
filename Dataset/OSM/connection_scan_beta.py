@@ -621,19 +621,37 @@ def csa_commands():
 
     #print("CON GRAFO ORIGINAL")
     #result1 = connection_scan(osm_graph, source_address, target_address, source_hour, source_date)
-    #print("CON GRAFO MODIFICADO")
-
+    print("CON GRAFO MODIFICADO")
     path = connection_scan(undirected_graph, source_address, target_address, source_hour, source_date)
     path_nodes = path[0]
     path_edges = path[1]
     geolocator = Nominatim(user_agent="ayatori")
     nod = []
+    path_coords = []
     for node in path_nodes:
         lon, lat = undirected_graph.vertex_properties["lon"][node], undirected_graph.vertex_properties["lat"][node]
         location = geolocator.reverse((lat,lon))
+        path_coords.append((lat, lon))
         if location not in nod:
             nod.append(location)
             print(location)
+
+    # Convert the graph to a Graphviz graph
+    gv_graph = Graph(engine='neato', graph_attr={'size': '8,8', 'overlap': 'false'}, node_attr={'shape': 'point', 'width': '0.05', 'color': 'black'}, edge_attr={'penwidth': '0.5', 'color': 'gray'})
+    for v in undirected_graph.vertices():
+        gv_graph.node(str(int(v)), pos='{},{}'.format(undirected_graph.vertex_properties['lon'][v], undirected_graph.vertex_properties['lat'][v]))
+    for e in undirected_graph.edges():
+        gv_graph.edge(str(int(e.source())), str(int(e.target())), weight=str(undirected_graph.edge_properties['weight'][e]))
+
+    # Convert the node indices in the `path` list to match the node indices in the `gv_graph` graph
+    path = [str(int(node)) for node in path_nodes]
+
+    # Highlight the shortest path in the graph
+    for i in range(len(path) - 1):
+        gv_graph.edge(path[i], path[i+1], color='red', penwidth='2.0')
+
+    # Render the graph to a file or display it in a Jupyter Notebook
+    #gv_graph.render('graph.png', view=True)
 
     return path
 
