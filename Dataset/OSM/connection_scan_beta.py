@@ -17,6 +17,13 @@ from queue import Queue
 import heapq
 from collections import defaultdict
 import graphviz
+import time
+from geopy.exc import GeocoderServiceError
+import math
+import folium
+from IPython.display import display, SVG
+from math import radians, cos, sin, asin, sqrt
+import pandas as pd
 
 from aves.data import eod, census
 from aves.features.utils import normalize_rows
@@ -30,82 +37,6 @@ print("GETTING INFO")
 AVES_ROOT = Path("..")
 EOD_PATH = AVES_ROOT / "data" / "external" / "EOD_STGO"
 OSM_PATH = AVES_ROOT / "data" / "external" / "OSM"
-
-## GTFS ##
-
-def get_gtfs_data():
-    """
-    Reads the GTFS data from a file and creates a directed graph with its info, using the 'pygtfs' library. This gives
-    the transit feed data of Santiago's public transport, including "Red Metropolitana de Movilidad" (previously known
-    as Transantiago), "Metro de Santiago", "EFE Trenes de Chile", and "Buses de Acercamiento Aeropuerto".
-
-    Returns:
-        graph: GTFS data converted to a graph.
-    """
-    # Create a new schedule object using a GTFS file
-    sched = pygtfs.Schedule(":memory:")
-    pygtfs.append_feed(sched, "gtfs.zip") # This takes around 2 minutes (01:51.44)
-
-    # Create a graph per route
-    graphs = {}
-    stop_id_map = {}  # To assign unique ids to every stop
-
-    print("GETTING GTFS ROUTES...")
-    for route in sched.routes:
-        graph = Graph(directed=True)
-        stop_ids = set()
-        trips = [trip for trip in sched.trips if trip.route_id == route.route_id]
-
-        weight_prop = graph.new_edge_property("int")  # Propiedad para almacenar los pesos de las aristas
-
-        for trip in trips:
-            stop_times = trip.stop_times
-
-            for i in range(len(stop_times)):
-                stop_id = stop_times[i].stop_id
-
-                if stop_id not in stop_id_map:
-                    vertex = graph.add_vertex()  # Añadir un vértice vacío
-                    stop_id_map[stop_id] = vertex  # Asignar el vértice al identificador de parada
-                else:
-                    vertex = stop_id_map[stop_id]  # Obtener el vértice existente
-
-                stop_ids.add(vertex)
-
-                if i < len(stop_times) - 1:
-                    next_stop_id = stop_times[i + 1].stop_id
-
-                    if next_stop_id not in stop_id_map:
-                        next_vertex = graph.add_vertex()  # Añadir un vértice vacío para la siguiente parada
-                        stop_id_map[next_stop_id] = next_vertex  # Asignar el vértice al identificador de parada
-                    else:
-                        next_vertex = stop_id_map[next_stop_id]  # Obtener el vértice existente para la siguiente parada
-
-                    e = graph.add_edge(vertex, next_vertex)  # Añadir una arista entre las paradas
-                    weight_prop[e] = 1  # Asignar peso 1 a la arista
-
-        graphs[route.route_id] = graph
-
-    print("DONE")
-    print("STORING ROUTE GRAPHS...")
-
-    # Store graphs into a file
-    for route_id, graph in graphs.items():
-        weight_prop = graph.new_edge_property("int")  # Crear una nueva propiedad de peso de arista
-
-        for e in graph.edges():  # Iterar sobre las aristas del grafo
-            weight_prop[e] = 1  # Asignar el peso 1 a cada arista
-
-        graph.edge_properties["weight"] = weight_prop  # Asignar la propiedad de peso al grafo
-
-        graph.save(f"{route_id}.gt")
-
-    print("GTFS DATA RECEIVED SUCCESSFULLY")
-    return graph
-
-# GTFS Graph
-gtfs_graph = get_gtfs_data()
-
 
 ## OSM ##
 
@@ -209,7 +140,6 @@ def get_osm_data():
     print("OSM DATA HAS BEEN SUCCESSFULLY RECEIVED")
     return graph
 
-
 # OSM Graph
 node_coords = {}
 osm_graph = get_osm_data()
@@ -277,24 +207,6 @@ def find_nearest_node(graph, latitude, longitude):
 
     return nearest_node
 
-# Finds the given address in the OSM graph
-def address_locator(graph, loc):
-    geolocator = Nominatim(user_agent="ayatori")
-    location = geolocator.geocode(loc)
-    long, lati = location.longitude, location.latitude
-    nearest = find_nearest_node(graph,lati,long)
-    near_lon, near_lat = graph.vertex_properties["lon"][nearest], graph.vertex_properties["lat"][nearest]
-    near_location = geolocator.reverse((near_lat,near_lon))
-    near_id = graph.vertex_properties["node_id"][nearest]
-    graph_id = graph.vertex_properties["graph_id"][nearest]
-    #print("Ubicación entregada: {}".format(loc))
-    print("Las coordenadas de la ubicación entregada son ({},{})".format(long,lati))
-    print("El vértice más cercano a la ubicación entregada está en las coordenadas ({},{})".format(near_lon, near_lat))
-    print("Dirección: {}".format(near_location))
-    print("El id del nodo es {}".format(near_id))
-    print("El id en el grafo es {}".format(graph_id))
-    return nearest
-
 def get_largest_component(component_sizes):
     largest_size = max(component_sizes)
     largest_component = [i for i, size in enumerate(component_sizes) if size == largest_size]
@@ -312,7 +224,7 @@ def analyze_connectivity(graph):
     # Contar el número de componentes conectados
     num_components = len(set(components))
     print("Número de componentes conectados:", num_components)
-    #print("Componentes conectados:", set(components))
+    print("Componentes conectados:", set(components))
 
     # Obtener el tamaño de cada componente
     component_sizes = []
@@ -320,23 +232,19 @@ def analyze_connectivity(graph):
         size = np.sum(components == component_id)
         component_sizes.append(size)
 
-    #print("Tamaño de cada componente:")
-    #for component_id, size in enumerate(component_sizes):
-    #    print("Componente {}: {}".format(component_id, size))
+    print("Tamaño de cada componente:")
+    for component_id, size in enumerate(component_sizes):
+        print("Componente {}: {}".format(component_id, size))
 
     # Obtener los componentes aislados
     isolated_components = [i for i, size in enumerate(component_sizes) if size == 1]
     print("Número de componentes aislados:", len(isolated_components))
-    #print("Componentes aislados:", isolated_components)
+    print("Componentes aislados:", isolated_components)
 
     # Obtener el componente más grande
     largest_component = get_largest_component(component_sizes)
     largest_component_size = largest_component[0]
     print("Componente más grande: tamaño:", largest_component_size)
-
-
-# Analizar la conectividad del grafo
-analyze_connectivity(osm_graph)
 
 def create_node_id_mapping(graph):
     node_id_mapping = {}
@@ -357,9 +265,9 @@ def create_edge_mapping(graph):
         edge_mapping[edge_index] = (source_node_id, target_node_id)
     return edge_mapping
 
-#node_mapping = create_node_id_mapping(osm_graph)
+node_mapping = create_node_id_mapping(osm_graph)
 
-#edge_mapping = create_edge_mapping(osm_graph)#678892 709089
+edge_mapping = create_edge_mapping(osm_graph)#678892 709089
 #for edge_index, (source_node, target_node) in edge_mapping.items():
 #    print("Edge {}: {} -> {}".format(edge_index, source_node, target_node))
 
@@ -376,6 +284,7 @@ def edge_count(graph, vertex):
 #print("Número de aristas salientes del vértice {}: {}".format(v, v.out_degree()))
 #print("Número de aristas total del nodo {}: {}".format(v, degree))
 
+# Probando si el problema realmente son las aristas o no
 def make_undirected(graph):
     undirected_graph = Graph(directed=False)
     vprop_map = graph.new_vertex_property("object")
@@ -454,6 +363,206 @@ def make_undirected(graph):
 
 # Convertir el grafo en no dirigido
 undirected_graph = make_undirected(osm_graph)
+
+# Finds the given address in the OSM graph
+def address_locator(graph, loc):
+    geolocator = Nominatim(user_agent="ayatori")
+    while True:
+        try:
+            location = geolocator.geocode(loc)
+            break
+        except GeocoderServiceError:
+            print("Geocoding service error. Retrying in 5 seconds...")
+            time.sleep(5)
+    long, lati = location.longitude, location.latitude
+    nearest = find_nearest_node(graph,lati,long)
+    near_lon, near_lat = graph.vertex_properties["lon"][nearest], graph.vertex_properties["lat"][nearest]
+    near_location = geolocator.reverse((near_lat,near_lon))
+    near_id = graph.vertex_properties["node_id"][nearest]
+    graph_id = graph.vertex_properties["graph_id"][nearest]
+    #print("Ubicación entregada: {}".format(loc))
+    print("Las coordenadas de la ubicación entregada son ({},{})".format(long,lati))
+    print("El vértice más cercano a la ubicación entregada está en las coordenadas ({},{})".format(near_lon, near_lat))
+    print("Dirección: {}".format(near_location))
+    print("El id del nodo es {}".format(near_id))
+    print("El id en el grafo es {}".format(graph_id))
+    return nearest
+
+## GTFS ##
+
+def get_gtfs_data():
+    """
+    Reads the GTFS data from a file and creates a directed graph with its info, using the 'pygtfs' library. This gives
+    the transit feed data of Santiago's public transport, including "Red Metropolitana de Movilidad" (previously known
+    as Transantiago), "Metro de Santiago", "EFE Trenes de Chile", and "Buses de Acercamiento Aeropuerto".
+
+    Returns:
+        graphs: GTFS data converted to a dictionary of graphs, one per route.
+        stop_coords: Dictionary containing the coordinates of each stop for each route.
+    """
+    # Create a new schedule object using a GTFS file
+    sched = pygtfs.Schedule(":memory:")
+    pygtfs.append_feed(sched, "gtfs.zip") # This takes around 2 minutes (01:51.44)
+
+    # Create a graph per route
+    graphs = {}
+    stop_id_map = {}  # To assign unique ids to every stop
+    stop_coords = {}
+    route_stops = {}
+    for route in sched.routes:
+        graph = Graph(directed=True)
+        stop_ids = set()
+        trips = [trip for trip in sched.trips if trip.route_id == route.route_id]
+
+        weight_prop = graph.new_edge_property("int")  # Propiedad para almacenar los pesos de las aristas
+
+        for trip in trips:
+            stop_times = trip.stop_times
+
+            for i in range(len(stop_times)):
+                stop_id = stop_times[i].stop_id
+                sequence = stop_times[i].stop_sequence
+
+                if stop_id not in stop_id_map:
+                    vertex = graph.add_vertex()  # Añadir un vértice vacío
+                    stop_id_map[stop_id] = vertex  # Asignar el vértice al identificador de parada
+                else:
+                    vertex = stop_id_map[stop_id]  # Obtener el vértice existente
+
+                stop_ids.add(vertex)
+
+                if i < len(stop_times) - 1:
+                    next_stop_id = stop_times[i + 1].stop_id
+
+                    if next_stop_id not in stop_id_map:
+                        next_vertex = graph.add_vertex()  # Añadir un vértice vacío para la siguiente parada
+                        stop_id_map[next_stop_id] = next_vertex  # Asignar el vértice al identificador de parada
+                    else:
+                        next_vertex = stop_id_map[next_stop_id]  # Obtener el vértice existente para la siguiente parada
+
+                    e = graph.add_edge(vertex, next_vertex)  # Añadir una arista entre las paradas
+                    weight_prop[e] = 1  # Asignar peso 1 a la arista
+
+                    # Store the coordinates of each stop for this route
+                    if route.route_id not in stop_coords:
+                        stop_coords[route.route_id] = {}
+                    if stop_id not in stop_coords[route.route_id]:
+                        stop = sched.stops_by_id(stop_id)[0]
+                        stop_coords[route.route_id][stop_id] = (stop.stop_lon, stop.stop_lat)
+
+        graphs[route.route_id] = graph
+        # Group the stops by direction to get the stops visited on the round trip and the return trip
+        stops_by_direction = {"round_trip": [], "return_trip": []}
+        for trip in trips:
+            stop_times = trip.stop_times
+            stops = [stop_times[i].stop_id for i in range(len(stop_times))]
+
+            # Determine the direction of the trip
+            if trip.direction_id == 0:
+                stops_by_direction["round_trip"].extend(stops)
+            else:
+                stops_by_direction["return_trip"].extend(stops)
+
+
+        # Get the unique stops visited on the round trip and the return trip
+        round_trip_stops = set(stops_by_direction["round_trip"])
+        return_trip_stops = set(stops_by_direction["return_trip"])
+        route_stops[route.route_id] = {}
+        for stop_id in round_trip_stops:
+            if stop_id in stop_coords[route.route_id]:
+                route_stops[route.route_id][stop_id] = {
+                    "route_id": route.route_id,
+                    "stop_id": stop_id,
+                    "coordinates": stop_coords[route.route_id][stop_id],
+                    "visited_on_round_trip": True,
+                    "visited_on_return_trip": False,
+                    "sequence": sequence
+                }
+        for stop_id in return_trip_stops:
+            if stop_id in stop_coords[route.route_id]:
+                if stop_id in route_stops[route.route_id]:
+                    route_stops[route.route_id][stop_id]["visited_on_return_trip"] = True
+                else:
+                    route_stops[route.route_id][stop_id] = {
+                        "route_id": route.route_id,
+                        "stop_id": stop_id,
+                        "coordinates": stop_coords[route.route_id][stop_id],
+                        "visited_on_round_trip": False,
+                        "visited_on_return_trip": True,
+                        "sequence": sequence
+                    }
+
+    print("DONE")
+    print("STORING ROUTE GRAPHS...")
+
+    # Store graphs into a file
+    for route_id, graph in graphs.items():
+        weight_prop = graph.new_edge_property("int")  # Crear una nueva propiedad de peso de arista
+
+        for e in graph.edges():  # Iterar sobre las aristas del grafo
+            weight_prop[e] = 1  # Asignar el peso 1 a cada arista
+
+        graph.edge_properties["weight"] = weight_prop  # Asignar la propiedad de peso al grafo
+
+        data_dir = "gtfs_routes"
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        graph.save(f"{data_dir}/{route_id}.gt")
+
+    print("GTFS DATA RECEIVED SUCCESSFULLY")
+    return graphs, route_stops
+
+# GTFS Graph
+gtfs_graph, route_stops = get_gtfs_data()
+
+def get_route_coordinates():
+    route_example = "506"
+    while True:
+        route_id = input(
+            "Ingresa recorrido (Ejemplo: '506'. Presiona Enter para usarlo): ") or route_example
+        if route_id.strip() != '':
+            print("Ruta ingresada: " + route_id)
+            break
+    stop_coords_list = [coord for stop_id, coord in stop_coords[route_id].items()]
+    return stop_coords_list
+
+def get_path():
+    route_example = "506"
+    while True:
+        route_id = input(
+            "Ingresa recorrido (Ejemplo: '506'. Presiona Enter para usarlo): ") or route_example
+        if route_id.strip() != '':
+            print("Ruta ingresada: " + route_id)
+            break
+    stop_coords_list = [coord for stop_id, coord in stops_dict[route_id].items()]
+    return stop_coords_list
+
+def map_route_stops(route_id):
+    #route_example = "506"
+    #while True:
+    #    route_id = input(
+    #        "Ingresa recorrido (Ejemplo: '506'. Presiona Enter para usarlo): ") or route_example
+    #    if route_id.strip() != '':
+    #        print("Ruta ingresada: " + route_id)
+    #        break
+
+    # Get the stops for the specified route
+    stops = route_stops.get(route_id, {})
+
+    # Filter the stops that are visited on the round trip
+    round_trip_stops = [stop_info for stop_info in stops.values() if stop_info["visited_on_round_trip"]]
+
+    # Sort the stops by their sequence number in the trip
+    round_trip_stops.sort(key=lambda stop_info: stop_info["sequence"])
+
+    # Map the stops visited on the round trip
+    map = folium.Map(location=[-33.45, -70.65], zoom_start=12)
+    for stop_info in round_trip_stops:
+        folium.Marker(location=[stop_info["coordinates"][1], stop_info["coordinates"][0]], popup=stop_info["stop_id"],
+                       icon=folium.Icon(color='green', icon='plus')).add_to(map)
+    #folium.PolyLine(locations=[[stop_info["coordinates"][1], stop_info["coordinates"][0]] for stop_info in round_trip_stops],
+    #                color='red', weight=2).add_to(map)
+    return map
 
 
 end = time.time()
@@ -547,29 +656,11 @@ def connection_scan(graph, source_address, target_address, departure_time, depar
     print("SOURCE NODE: {}. TARGET NODE: {}.".format(source_node_graph_id, target_node_graph_id))
     print("DEPARTURE TIME: {}".format(departure_time))
 
-    # Convert the graph to a dictionary of nodes and their neighbors
-    #graph_dict = defaultdict(dict)
-    #for edge in graph.edges():
-    #    u, v = edge.source(), edge.target()
-    #    weight = graph.edge_properties["weight"][edge]
-    #    graph_dict[u][v] = weight
-
-    # Find the shortest path using Dijkstra's algorithm
-    #path = dijkstra(graph_dict, source_node_graph_id, target_node_graph_id)
-
-    # Convert the path to a list of node IDs
-    #path = [graph.vertex(node_id) for node_id in path]
-    #path = [graph.vertex_properties["graph_id"][node] for node in path]
-
-    #print("RECONSTRUCTED PATH:")
-    #for v in path:
-    #    print(node_id_mapping[v], end=" -> ")
-    #print()
-
     path = shortest_path(graph, source_node_graph_id, target_node_graph_id)
 
     return path
 
+result_nodes = []
 
 def csa_commands():
     """
@@ -609,10 +700,10 @@ def csa_commands():
             break
 
     # Destination address
-    destination_example = "Pio Nono 1, Providencia"
+    destination_example = "Campus Antumapu Universidad de Chile, Santiago"
     while True:
         target_address = input(
-            "Ingresa dirección de destino (Ejemplo: 'Pio Nono 1, Providencia'. Presiona Enter para usarlo): ") or destination_example
+            "Ingresa dirección de destino (Ejemplo: 'Campus Antumapu Universidad de Chile, Santiago'. Presiona Enter para usarlo): ") or destination_example
         if target_address.strip() != '':
             #print("Dirección de Destino ingresada: " + target_address)
             break
@@ -634,25 +725,173 @@ def csa_commands():
         path_coords.append((lat, lon))
         if location not in nod:
             nod.append(location)
-            print(location)
+            #print(location)
+    print(path_coords)
 
-    # Convert the graph to a Graphviz graph
-    gv_graph = Graph(engine='neato', graph_attr={'size': '8,8', 'overlap': 'false'}, node_attr={'shape': 'point', 'width': '0.05', 'color': 'black'}, edge_attr={'penwidth': '0.5', 'color': 'gray'})
-    for v in undirected_graph.vertices():
-        gv_graph.node(str(int(v)), pos='{},{}'.format(undirected_graph.vertex_properties['lon'][v], undirected_graph.vertex_properties['lat'][v]))
-    for e in undirected_graph.edges():
-        gv_graph.edge(str(int(e.source())), str(int(e.target())), weight=str(undirected_graph.edge_properties['weight'][e]))
+    # Create a map of Santiago de Chile
+    map = folium.Map(location=[-33.45, -70.65], zoom_start=13)
 
-    # Convert the node indices in the `path` list to match the node indices in the `gv_graph` graph
-    path = [str(int(node)) for node in path_nodes]
+    # Add markers for each coordinate in the list
+    #i=1
+    #for coord in path_coords:
+    #    folium.Marker(location=[coord[0], coord[1]],popup=('paradero{}'.format(i)),
+    #                 icon = folium.Icon(color='green',icon='plus')).add_to(map)
+    #    i+=1
 
-    # Highlight the shortest path in the graph
-    for i in range(len(path) - 1):
-        gv_graph.edge(path[i], path[i+1], color='red', penwidth='2.0')
+    # Sort the searched_route list based on the order of the points list
+    #searched_route = [coord for _, coord in sorted(zip(points, searched_route))]
 
-    # Render the graph to a file or display it in a Jupyter Notebook
-    #gv_graph.render('graph.png', view=True)
+    # Add a line connecting the stops
+    folium.PolyLine(locations=path_coords, color='red', weight=3).add_to(map)
 
-    return path
+    # Display the map
+    display(map)
 
-csa_commands()
+    return path_coords
+
+
+selected_path = csa_commands()
+
+def get_stop_coords(route_stops, stop_id):
+    for route_id, stops in route_stops.items():
+        for stop_info in stops.values():
+            if stop_info["stop_id"] == stop_id:
+                return stop_info["coordinates"]
+    return None
+
+#get_stop_coords(route_stops, "PB241")
+
+def get_stop_id(route_stops, coords):
+    min_distance = float("inf")
+    closest_stop_id = None
+    for route_id, stops in route_stops.items():
+        for stop_info in stops.values():
+            stop_coords = stop_info["coordinates"]
+            distance = haversine(coords[1], coords[0], stop_coords[1], stop_coords[0])
+            if distance < min_distance:
+                min_distance = distance
+                closest_stop_id = stop_info["stop_id"]
+    return closest_stop_id
+
+#get_stop_id(route_stops, (-70.6813493519124, -33.3640607810884))
+
+def find_nearest_stop(address):
+    v = address_locator(undirected_graph, str(address))
+    v_lon = undirected_graph.vertex_properties['lon'][v]
+    v_lat = undirected_graph.vertex_properties['lat'][v]
+    v_coords = (v_lon, v_lat)
+    nearest_stop = get_stop_id(route_stops, v_coords)
+    return nearest_stop
+
+#find_nearest_stop("Calle Laguna Verde Oriente 31, Maipu")
+
+def get_stop_coords(route_stops, stop_id):
+    for route_id, stops in route_stops.items():
+        for stop_info in stops.values():
+            if stop_info["stop_id"] == stop_id:
+                return stop_info["coordinates"]
+    return None
+
+def get_stop_id(route_stops, coords):
+    min_distance = float("inf")
+    closest_stop_id = None
+    for route_id, stops in route_stops.items():
+        for stop_info in stops.values():
+            stop_coords = stop_info["coordinates"]
+            distance = haversine(coords[1], coords[0], stop_coords[1], stop_coords[0])
+            if distance < min_distance:
+                min_distance = distance
+                closest_stop_id = stop_info["stop_id"]
+    return closest_stop_id
+
+def find_nearest_stop(address):
+    v = address_locator(undirected_graph, str(address))
+    v_lon = undirected_graph.vertex_properties['lon'][v]
+    v_lat = undirected_graph.vertex_properties['lat'][v]
+    v_coords = (v_lon, v_lat)
+    nearest_stop = get_stop_id(route_stops, v_coords)
+    return nearest_stop
+
+
+# Define the Haversine formula for calculating distances between two points
+def haversine(lon1, lat1, lon2, lat2):
+    R = 6372.8  # Earth radius in kilometers
+    dLat = radians(lat2 - lat1)
+    dLon = radians(lon2 - lon1)
+    lat1 = radians(lat1)
+    lat2 = radians(lat2)
+    a = sin(dLat / 2)**2 + cos(lat1) * cos(lat2) * sin(dLon / 2)**2
+    c = 2 * asin(sqrt(a))
+    return R * c
+
+
+# Define the function to create a map that shows the correct public transport services to take from a source to a target
+def create_transport_map(route_stops):
+    # Calculate the average distance between each stop on each bus route and the vertices on the shortest path
+    route_averages = {}
+    for route_id, stops in route_stops.items():
+        stop_coords = [stop_info["coordinates"] for stop_info in stops.values()]
+        distances = []
+        for path_coord in selected_path:
+            path_lon, path_lat = path_coord
+            stop_distances = []
+            for stop_coord in stop_coords:
+                stop_lon, stop_lat = stop_coord
+                distance = haversine(path_lon, path_lat, stop_lon, stop_lat)
+                stop_distances.append(distance)
+            distances.append(min(stop_distances))
+        route_averages[route_id] = sum(distances) / len(distances)
+
+    # Find the route with the smallest average distance
+    best_route_id = min(route_averages, key=route_averages.get)
+    print(best_route_id)
+    best_route_stops = route_stops[best_route_id]
+
+    # Create a map that shows the correct public transport services to take from the source to the target
+    m = folium.Map(location=[selected_path[0][0], selected_path[0][1]], zoom_start=13)
+
+    # Add markers for the source and target points
+    folium.Marker(location=[selected_path[0][0], selected_path[0][1]], popup="SOURCE", icon=folium.Icon(color='green')).add_to(m)
+    folium.Marker(location=[selected_path[-1][0], selected_path[-1][1]], popup="TARGET", icon=folium.Icon(color='red')).add_to(m)
+
+    # Add markers for the nearest stop from the source and target points
+    source_coords = (selected_path[0][1], selected_path[0][0])
+    near_source_stop_id = get_stop_id(route_stops, source_coords)
+    near_source_stop = get_stop_coords(route_stops, str(near_source_stop_id))
+    folium.Marker(location=[near_source_stop[1], near_source_stop[0]], popup="Paradero de inicio: {}".format(near_source_stop_id), icon=folium.Icon(color='orange', icon='plus')).add_to(m)
+
+    target_coords = (selected_path[-1][1], selected_path[-1][0])
+    near_target_stop_id = get_stop_id(route_stops, target_coords)
+    near_target_stop = get_stop_coords(route_stops, str(near_target_stop_id))
+    folium.Marker(location=[near_target_stop[1], near_target_stop[0]], popup="Paradero de término: {}".format(near_target_stop_id), icon=folium.Icon(color='orange', icon='plus')).add_to(m)
+
+    # Add a colored line that shows the stops on the best route
+    route_coords = []
+    source_stop_found = False
+    for stop_info in best_route_stops.values():
+        stop_lon, stop_lat = stop_info["coordinates"]
+        stop_id = stop_info["stop_id"]
+        if stop_id == near_source_stop_id:
+            source_stop_found = True
+        if source_stop_found:
+            if near_source_stop[0] <= stop_lat <= near_target_stop[0] and near_source_stop[1] <= stop_lon <= near_target_stop[1]:
+                route_coords.append([stop_lat, stop_lon])
+        if stop_id == near_target_stop_id:
+            break
+    if len(route_coords) != 0:
+        folium.PolyLine(route_coords, color="blue", weight=5).add_to(m)
+
+    # Set the optimal zoom level for the map
+    fit_bounds(route_coords + selected_path, m)
+
+    return m
+
+# Define the function to set the optimal zoom level for the map
+def fit_bounds(points, m):
+    df = pd.DataFrame(points).rename(columns={0:'Lat', 1:'Lon'})[['Lat', 'Lon']]
+    sw = df[['Lat', 'Lon']].min().values.tolist()
+    ne = df[['Lat', 'Lon']].max().values.tolist()
+    m.fit_bounds([sw, ne])
+
+transport_map = create_transport_map(route_stops)
+transport_map
