@@ -1,7 +1,7 @@
 import pyrosm
 import numpy as np
 import time as tm
-from graph_tool.all import *
+from graph_tool.all import Graph
 from geopy.exc import GeocoderServiceError
 from geopy.geocoders import Nominatim
 
@@ -9,7 +9,7 @@ class OSMGraph:
     def __init__(self):
         self.graph = self.get_osm_data()
 
-    def get_osm_data(self):
+    def get_osm_data(self, OSM_PATH):
         """
         Obtains the required OpenStreetMap data using the 'pyrosm' library. This gives the map info of Santiago.
 
@@ -209,7 +209,7 @@ class OSMGraph:
                     return
         if location is not None:
             long, lati = location.longitude, location.latitude
-            nearest = find_nearest_node(self.graph, lati, long)
+            nearest = self.find_nearest_node(self.graph, lati, long)
             near_lon, near_lat = self.graph.vertex_properties["lon"][nearest], self.graph.vertex_properties["lat"][nearest]
             near_location = geolocator.reverse((near_lat,near_lon))
             near_id = self.graph.vertex_properties["node_id"][nearest]

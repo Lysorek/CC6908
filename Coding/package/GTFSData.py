@@ -224,25 +224,6 @@ class GTFSData:
                         orientations.append((stop_id, orientation))
         return stop_ids, orientations
 
-    def find_nearest_stops(self, address, margin):
-        """
-        Given an address and a margin, returns a list of the nearest stop IDs and their orientations.
-
-        Parameters:
-        address (str): The address to search around.
-        margin (float): The maximum distance (in kilometers) from the given address to include stops in the result.
-
-        Returns:
-        tuple: A tuple of two lists. The first list contains the stop IDs that are within the specified margin of the given address.
-        The second list contains tuples of stop IDs and their orientations.
-        """
-        v = address_locator(undirected_graph, str(address))
-        v_lon = undirected_graph.vertex_properties['lon'][v]
-        v_lat = undirected_graph.vertex_properties['lat'][v]
-        v_coords = (v_lon, v_lat)
-        nearest_stops, orientations = self.get_near_stop_ids(v_coords, margin)
-        return nearest_stops, orientations
-
     def get_route_stop_ids(self, route_id):
         """
         Given a route ID, returns a list of stop IDs for the stops on the given route.
