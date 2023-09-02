@@ -72,8 +72,6 @@ class GTFSData:
 
                         e = graph.add_edge(vertex, next_vertex)
                         graph.edge_properties["weight"][e] = 1
-
-                        # Assign the u and v properties to the edge
                         graph.edge_properties["u"][e] = vertex
                         graph.edge_properties["v"][e] = next_vertex
 
@@ -148,20 +146,14 @@ class GTFSData:
                         }
 
         for route_id, graph in self.graphs.items():
-
-            # Creates properties
             weight_prop = graph.new_edge_property("int")
-            u_prop = graph.new_edge_property("object")
-            v_prop = graph.new_edge_property("object")
-
-            graph.edge_properties["weight"] = weight_prop
-            graph.edge_properties["u"] = u_prop
-            graph.edge_properties["v"] = v_prop
 
             for e in graph.edges():
                 weight_prop[e] = 1
-                u_prop[e] = graph.edge_properties["u"][e]
-                v_prop[e] = graph.edge_properties["v"][e]
+
+            graph.edge_properties["weight"] = weight_prop
+            graph.edge_properties["u"] = graph.new_edge_property("object")
+            graph.edge_properties["v"] = graph.new_edge_property("object")
 
             data_dir = "gtfs_routes"
             if not os.path.exists(data_dir):
@@ -188,10 +180,48 @@ class GTFSData:
             return None
 
         graph = self.graphs[route_id]
-        vertices = [int(graph.vertex_properties["node_id"][v]) for v in graph.vertices()]
-        edges = [(int(graph.edge_properties["u"][e]), int(graph.edge_properties["v"][e])) for e in graph.edges()]
+        vertices = [graph.vertex_properties["node_id"][v] for v in graph.vertices()]
+        edges = [(graph.edge_properties["u"][e], graph.edge_properties["v"][e]) for e in graph.edges()]
 
         return vertices, edges
+
+    def get_route_graph_vertices(self, route_id):
+        """
+        Given a route_id, returns the vertices for the corresponding graph.
+
+        Parameters:
+        route_id (str): The ID of the route.
+
+        Returns:
+        list: A list containing the vertices of the graph. The vertices are a list of node IDs.
+        """
+        if route_id not in self.graphs:
+            print(f"Route {route_id} does not exist.")
+            return None
+
+        graph = self.graphs[route_id]
+        vertices = [graph.vertex_properties["node_id"][v] for v in graph.vertices()]
+
+        return vertices
+
+    def get_route_graph_edges(self, route_id):
+        """
+        Given a route_id, returns the edges for the corresponding graph.
+
+        Parameters:
+        route_id (str): The ID of the route.
+
+        Returns:
+        list: A list containing the edges of the graph.
+        """
+        if route_id not in self.graphs:
+            print(f"Route {route_id} does not exist.")
+            return None
+
+        graph = self.graphs[route_id]
+        edges = [(graph.edge_properties["u"][e], graph.edge_properties["v"][e]) for e in graph.edges()]
+
+        return edges
 
     def get_route_coordinates(self, route_id):
         round_trip_stops = []
