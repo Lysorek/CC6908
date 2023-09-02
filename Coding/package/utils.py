@@ -236,4 +236,4 @@ def find_best_option(osm_graph, gtfs_data, selected_path, departure_time, depart
                             initial_delta_time = this_delta_time
 
     best_option_info = [best_option, initial_delta_time, best_option_times, initial_source_time, valid_target, best_option_orientation]
-    return best_option
+    return best_option_info

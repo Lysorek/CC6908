@@ -7,21 +7,35 @@ from geopy.geocoders import Nominatim
 
 class OSMGraph:
     def __init__(self):
-        self.graph = self.get_osm_data()
+        self.graph = self.create_osm_graph()
 
-    def get_osm_data(self, OSM_PATH):
+    def download_osm_file(self, OSM_PATH):
         """
-        Obtains the required OpenStreetMap data using the 'pyrosm' library. This gives the map info of Santiago.
+        Downloads the latest OSM file for Santiago.
+
+        Parameters:
+            OSM_PATH (str): The directory where the OSM file will be saved.
 
         Returns:
-            graph: osm data converted to a graph
+            str: The path to the downloaded OSM file.
         """
-        # Download latest OSM data
         fp = pyrosm.get_data(
             "Santiago",
             update=True,
             directory=OSM_PATH
         )
+
+        return fp
+
+    def create_osm_graph(self, OSM_PATH):
+        """
+        Creates a graph-tool's graph using the downloaded OSM data for Santiago.
+
+        Returns:
+            graph: osm data converted to a graph
+        """
+        # Download latest OSM data
+        fp = self.download_osm_file(OSM_PATH)
 
         osm = pyrosm.OSM(fp)
 
@@ -107,6 +121,14 @@ class OSMGraph:
 
         print("OSM DATA HAS BEEN SUCCESSFULLY RECEIVED")
         return graph
+
+    def get_nodes_and_edges(self):
+        """
+        Returns a tuple containing two lists: one with the nodes and another with the edges.
+        """
+        nodes = list(self.graph.vertices())
+        edges = list(self.graph.edges())
+        return nodes, edges
 
     def print_graph(self):
         """
@@ -210,10 +232,6 @@ class OSMGraph:
         if location is not None:
             long, lati = location.longitude, location.latitude
             nearest = self.find_nearest_node(self.graph, lati, long)
-            near_lon, near_lat = self.graph.vertex_properties["lon"][nearest], self.graph.vertex_properties["lat"][nearest]
-            near_location = geolocator.reverse((near_lat,near_lon))
-            near_id = self.graph.vertex_properties["node_id"][nearest]
-            graph_id = self.graph.vertex_properties["graph_id"][nearest]
             return nearest
         msg = "Error: Address couldn't be found."
         print(msg)

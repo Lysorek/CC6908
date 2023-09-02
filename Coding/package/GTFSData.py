@@ -13,19 +13,34 @@ class GTFSData:
         self.special_dates = []
 
     def get_gtfs_data(self):
+        """
+        Reads the GTFS data from a file and creates a directed graph with its info, using the 'pygtfs' library. This gives
+        the transit feed data of Santiago's public transport, including "Red Metropolitana de Movilidad" (previously known
+        as Transantiago), "Metro de Santiago", "EFE Trenes de Chile", and "Buses de Acercamiento Aeropuerto".
+
+        Returns:
+            graphs: GTFS data converted to a dictionary of graphs, one per route.
+            route_stops: Dictionary containing the stops for each route.
+            special_dates: List of special calendar dates.
+        """
+        # Create a new schedule object using a GTFS file
         sched = pygtfs.Schedule(":memory:")
         pygtfs.append_feed(sched, self.gtfs_file)
 
-        for cal_date in sched.service_exceptions:
+        # Get special calendar dates
+        for cal_date in sched.service_exceptions: # Calendar_dates is renamed in pygtfs
             self.special_dates.append(cal_date.date.strftime("%d/%m/%Y"))
 
-        stop_id_map = {}
+        stop_id_map = {} # To assign unique ids to every stop
         stop_coords = {}
 
         for route in sched.routes:
             graph = Graph(directed=True)
             stop_ids = set()
             trips = [trip for trip in sched.trips if trip.route_id == route.route_id]
+
+            # Create a new vertex property for node_id
+            node_id_prop = graph.new_vertex_property("string")
 
             for trip in trips:
                 stop_times = trip.stop_times
@@ -43,6 +58,9 @@ class GTFSData:
 
                     stop_ids.add(vertex)
 
+                    # Assign the node_id property to the vertex
+                    node_id_prop[vertex] = stop_id
+
                     if i < len(stop_times) - 1:
                         next_stop_id = stop_times[i + 1].stop_id
 
@@ -54,6 +72,10 @@ class GTFSData:
 
                         e = graph.add_edge(vertex, next_vertex)
                         graph.edge_properties["weight"][e] = 1
+
+                        # Assign the u and v properties to the edge
+                        graph.edge_properties["u"][e] = vertex
+                        graph.edge_properties["v"][e] = next_vertex
 
                         if route.route_id not in stop_coords:
                             stop_coords[route.route_id] = {}
@@ -78,6 +100,9 @@ class GTFSData:
 
                     if stop_id in self.route_stops[route.route_id]:
                         self.route_stops[route.route_id][stop_id]["arrival_times"].append(arrival_time)
+
+            # Assign the node_id property to the graph
+            graph.vertex_properties["node_id"] = node_id_prop
 
             self.graphs[route.route_id] = graph
 
@@ -123,12 +148,20 @@ class GTFSData:
                         }
 
         for route_id, graph in self.graphs.items():
+
+            # Creates properties
             weight_prop = graph.new_edge_property("int")
+            u_prop = graph.new_edge_property("object")
+            v_prop = graph.new_edge_property("object")
+
+            graph.edge_properties["weight"] = weight_prop
+            graph.edge_properties["u"] = u_prop
+            graph.edge_properties["v"] = v_prop
 
             for e in graph.edges():
                 weight_prop[e] = 1
-
-            graph.edge_properties["weight"] = weight_prop
+                u_prop[e] = graph.edge_properties["u"][e]
+                v_prop[e] = graph.edge_properties["v"][e]
 
             data_dir = "gtfs_routes"
             if not os.path.exists(data_dir):
@@ -139,6 +172,26 @@ class GTFSData:
         print("GTFS DATA RECEIVED SUCCESSFULLY")
 
         return self.graphs, self.route_stops, self.special_dates
+
+    def get_route_graph(self, route_id):
+        """
+        Given a route_id, returns the vertices and edges for the corresponding graph.
+
+        Parameters:
+        route_id (str): The ID of the route.
+
+        Returns:
+        tuple: A tuple containing the vertices and edges of the graph. The vertices are a list of node IDs, and the edges are a list of tuples containing the source and target node IDs.
+        """
+        if route_id not in self.graphs:
+            print(f"Route {route_id} does not exist.")
+            return None
+
+        graph = self.graphs[route_id]
+        vertices = [int(graph.vertex_properties["node_id"][v]) for v in graph.vertices()]
+        edges = [(int(graph.edge_properties["u"][e]), int(graph.edge_properties["v"][e])) for e in graph.edges()]
+
+        return vertices, edges
 
     def get_route_coordinates(self, route_id):
         round_trip_stops = []
