@@ -6,8 +6,9 @@ from geopy.exc import GeocoderServiceError
 from geopy.geocoders import Nominatim
 
 class OSMGraph:
-    def __init__(self):
-        self.graph = self.create_osm_graph()
+    def __init__(self, OSM_PATH='.'):
+        self.node_coords = {}
+        self.graph = self.create_osm_graph(OSM_PATH)
 
     def download_osm_file(self, OSM_PATH):
         """
@@ -66,6 +67,7 @@ class OSMGraph:
             lat = row['lat']
             node_id = row['id']
             graph_id = index
+            self.node_coords[node_id] = (lat, lon)
 
             vertex = graph.add_vertex()
             vertex_map[node_id] = vertex
@@ -104,8 +106,8 @@ class OSMGraph:
                 continue  # Skip edges with non-existent vertices
 
             # Calculate the distance between the nodes and use it as the weight of the edge
-            source_coords = (row['u_y'], row['u_x'])
-            target_coords = (row['v_y'], row['v_x'])
+            source_coords = self.node_coords[source_node]
+            target_coords = self.node_coords[target_node]
             distance = np.linalg.norm(np.array(source_coords) - np.array(target_coords))
 
             e = graph.add_edge(source_vertex, target_vertex)
