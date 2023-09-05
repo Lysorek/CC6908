@@ -6,11 +6,27 @@ from datetime import datetime, date, time, timedelta
 from graph_tool.all import Graph
 
 class GTFSData:
-    def __init__(self, gtfs_file):
-        self.gtfs_file = gtfs_file
+    def __init__(self, GTFS_PATH='gtfs.zip'):
+        self.scheduler = self.create_scheduler(GTFS_PATH)
         self.graphs = {}
         self.route_stops = {}
         self.special_dates = []
+        self.graphs, self.route_stops, self.special_dates = self.get_gtfs_data()
+
+    def create_scheduler(self, GTFS_PATH):
+        """
+        Creates the scheduler for the class, using the GTFS file, located in the given path directory.
+
+        Parameters:
+        GTFS_PATH (PATH): the path where the GTFS file is located.
+
+        Returns:
+            _type_: _description_
+        """
+        # Create a new schedule object using a GTFS file
+        scheduler = pygtfs.Schedule(":memory:")
+        pygtfs.append_feed(scheduler, GTFS_PATH)
+        return scheduler
 
     def get_gtfs_data(self):
         """
@@ -23,9 +39,7 @@ class GTFSData:
             route_stops: Dictionary containing the stops for each route.
             special_dates: List of special calendar dates.
         """
-        # Create a new schedule object using a GTFS file
-        sched = pygtfs.Schedule(":memory:")
-        pygtfs.append_feed(sched, self.gtfs_file)
+        sched = self.scheduler
 
         # Get special calendar dates
         for cal_date in sched.service_exceptions: # Calendar_dates is renamed in pygtfs
@@ -41,6 +55,14 @@ class GTFSData:
 
             # Create a new vertex property for node_id
             node_id_prop = graph.new_vertex_property("string")
+
+            # Create edge properties
+            u_prop = graph.new_edge_property("object")
+            v_prop = graph.new_edge_property("object")
+            weight_prop = graph.new_edge_property("int")
+            graph.edge_properties["weight"] = weight_prop
+            graph.edge_properties["u"] = u_prop
+            graph.edge_properties["v"] = v_prop
 
             for trip in trips:
                 stop_times = trip.stop_times
@@ -94,7 +116,7 @@ class GTFSData:
                                 "arrival_times": []
                             }
 
-                    arrival_time = (pygtfs.datetime.min + stop_times[i].arrival_time).time()
+                    arrival_time = (datetime.min + stop_times[i].arrival_time).time()
 
                     if stop_id in self.route_stops[route.route_id]:
                         self.route_stops[route.route_id][stop_id]["arrival_times"].append(arrival_time)
