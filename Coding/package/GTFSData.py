@@ -21,7 +21,7 @@ class GTFSData:
         GTFS_PATH (PATH): the path where the GTFS file is located.
 
         Returns:
-            _type_: _description_
+        pygtfs.Schedule: the scheduler object
         """
         # Create a new schedule object using a GTFS file
         scheduler = pygtfs.Schedule(":memory:")
@@ -64,6 +64,8 @@ class GTFSData:
             graph.edge_properties["u"] = u_prop
             graph.edge_properties["v"] = v_prop
 
+            added_edges = set() # To keep track of the edges that have already been added
+
             for trip in trips:
                 stop_times = trip.stop_times
                 orientation = trip.trip_id.split("-")[1]
@@ -92,10 +94,13 @@ class GTFSData:
                         else:
                             next_vertex = stop_id_map[next_stop_id]
 
-                        e = graph.add_edge(vertex, next_vertex)
-                        graph.edge_properties["weight"][e] = 1
-                        graph.edge_properties["u"][e] = vertex
-                        graph.edge_properties["v"][e] = next_vertex
+                        edge = (vertex, next_vertex)
+                        if edge not in added_edges: # Check if the edge has already been added
+                            e = graph.add_edge(*edge)
+                            graph.edge_properties["weight"][e] = 1
+                            graph.edge_properties["u"][e] = node_id_prop[vertex]
+                            graph.edge_properties["v"][e] = node_id_prop[next_vertex]
+                            added_edges.add(edge) # Add the edge to the set of added edges
 
                         if route.route_id not in stop_coords:
                             stop_coords[route.route_id] = {}
@@ -174,8 +179,8 @@ class GTFSData:
                 weight_prop[e] = 1
 
             graph.edge_properties["weight"] = weight_prop
-            graph.edge_properties["u"] = graph.new_edge_property("object")
-            graph.edge_properties["v"] = graph.new_edge_property("object")
+            #graph.edge_properties["u"] = graph.new_edge_property("object")
+            #graph.edge_properties["v"] = graph.new_edge_property("object")
 
             data_dir = "gtfs_routes"
             if not os.path.exists(data_dir):
@@ -202,8 +207,18 @@ class GTFSData:
             return None
 
         graph = self.graphs[route_id]
-        vertices = [graph.vertex_properties["node_id"][v] for v in graph.vertices()]
-        edges = [(graph.edge_properties["u"][e], graph.edge_properties["v"][e]) for e in graph.edges()]
+        vertices = []
+        for v in graph.vertices():
+            node_id = graph.vertex_properties["node_id"][v]
+            if node_id != '' and node_id is not None:
+                vertices.append(node_id)
+
+        edges = []
+        for e in graph.edges():
+            u = graph.edge_properties["u"][e]
+            v = graph.edge_properties["v"][e]
+            if u is not None and v is not None:
+                edges.append((u, v))
 
         return vertices, edges
 
