@@ -35,7 +35,7 @@ def find_nearest_stops(osm_graph, gtfs_data, address, margin):
     """
     graph = osm_graph.graph
 
-    v = osm_graph.address_locator(graph, str(address))
+    v = osm_graph.address_locator(str(address))
     v_lon = graph.vertex_properties['lon'][v]
     v_lat = graph.vertex_properties['lat'][v]
     v_coords = (v_lon, v_lat)
@@ -64,22 +64,22 @@ def available_route_finder(osm_graph, gtfs_data, source_node_id, target_node_id,
     target = geolocator.reverse((target_lat,target_lon))
 
     # Add markers for the nearest stop from the source and target points
-    near_source_stops, source_orientations = find_nearest_stops(source, margin)
-    near_target_stops, target_orientations = find_nearest_stops(target, margin)
+    near_source_stops, source_orientations = find_nearest_stops(osm_graph, gtfs_data, source, margin)
+    near_target_stops, target_orientations = find_nearest_stops(osm_graph, gtfs_data, target, margin)
 
     fixed_orientation = None
     valid_services = set()
     for source_stop_id in near_source_stops:
         for target_stop_id in near_target_stops:
             # Finding services that connects a stop near the source with one near the target
-            services = gtfs_data.connection_finder(route_stops, source_stop_id, target_stop_id)
+            services = gtfs_data.connection_finder(source_stop_id, target_stop_id)
             for service in services:
                 # Getting the orientations on which the services visits the stops
                 source_orientation = gtfs_data.get_bus_orientation(service, source_stop_id)
                 target_orientation = gtfs_data.get_bus_orientation(service, target_stop_id)
                 # Getting the sequence number (the ordinal value for the visited stop)
-                source_sequence = int(gtfs_data.get_trip_sequence(route_stops, service, source_stop_id))
-                target_sequence = int(gtfs_data.get_trip_sequence(route_stops, service, target_stop_id))
+                source_sequence = int(gtfs_data.get_trip_sequence(service, source_stop_id))
+                target_sequence = int(gtfs_data.get_trip_sequence(service, target_stop_id))
                 if source_sequence > target_sequence:
                     # Travel not valid
                     continue
@@ -154,7 +154,7 @@ def find_best_option(osm_graph, gtfs_data, selected_path, departure_time, depart
     # Checks for valid target stops
     valid_target = []
     for target_stop in valid_target_stops:
-        target_routes = gtfs_data.get_routes_at_stop(route_stops, target_stop)
+        target_routes = gtfs_data.get_routes_at_stop(target_stop)
         valid_target.extend(target_routes)
     valid_target = list(dict.fromkeys(valid_target))
 
@@ -163,7 +163,7 @@ def find_best_option(osm_graph, gtfs_data, selected_path, departure_time, depart
 
     for stop_id in valid_source_stops:
         # Gets the services that visits the stop and filters the valid ones (source)
-        routes_at_stop = gtfs_data.get_routes_at_stop(route_stops, stop_id)
+        routes_at_stop = gtfs_data.get_routes_at_stop(stop_id)
         valid_stop_services = [stop_id for stop_id in valid_services if stop_id in routes_at_stop]
         for valid_service in valid_stop_services:
             # Gets the arrival times and service orientation for this valid service
@@ -174,7 +174,7 @@ def find_best_option(osm_graph, gtfs_data, selected_path, departure_time, depart
                 for target_stop_id in valid_target_stops:
                     flag = False
                     # Gets the services that visits the stop and filters the valid ones (target)
-                    target_stop_routes = gtfs_data.get_routes_at_stop(route_stops, target_stop_id)
+                    target_stop_routes = gtfs_data.get_routes_at_stop(target_stop_id)
                     if valid_service in target_stop_routes:
                         target_orientation = gtfs_data.get_bus_orientation(valid_service, target_stop_id)
                         if orientation not in target_orientation:
@@ -190,7 +190,7 @@ def find_best_option(osm_graph, gtfs_data, selected_path, departure_time, depart
                 arrival_times = arrival_info[1]
 
                 # Gets the coordinates for the stop and the source location
-                stop_coords = gtfs_data.get_stop_coords(route_stops, stop_id)
+                stop_coords = gtfs_data.get_stop_coords(stop_id)
 
                 # Base Coordinates
                 source_lat = selected_path[0][0]

@@ -45,24 +45,23 @@ def connection_scan_lite(source_address, target_address, departure_time, departu
     folium.Map: the map of the best travel route. It returns None if no routes are found.
     """
     # Getting the nodes corresponding to the addresses
-    graph = osm_graph.graph
-    source_node = osm_graph.address_locator(graph, source_address)
-    target_node = osm_graph.address_locator(graph, target_address)
+    source_node = osm_graph.address_locator(source_address)
+    target_node = osm_graph.address_locator(target_address)
 
     # Instance of the route_stops dictionary
     route_stops = gtfs_data.route_stops
 
     if source_node is not None and target_node is not None:
         # Convert source and target node IDs to integers
-        source_node_graph_id = graph.vertex_properties["graph_id"][source_node]
-        target_node_graph_id = graph.vertex_properties["graph_id"][target_node]
+        source_node_graph_id = osm_graph.graph.vertex_properties["graph_id"][source_node]
+        target_node_graph_id = osm_graph.graph.vertex_properties["graph_id"][target_node]
 
         print("Both addresses have been found.")
         print("Processing...")
 
         geolocator = Nominatim(user_agent="ayatori")
 
-        route_info = available_route_finder(graph, gtfs_data, source_node_graph_id, target_node_graph_id, departure_time, departure_date, margin, geolocator)
+        route_info = available_route_finder(osm_graph, gtfs_data, source_node_graph_id, target_node_graph_id, departure_time, departure_date, margin, geolocator)
 
         selected_path = route_info[0]
         source = route_info[1]
@@ -146,8 +145,8 @@ def connection_scan_lite(source_address, target_address, departure_time, departu
         for stop_id in near_source_stops:
             if stop_id in valid_source_stops:
                 # Filters the data for selecting the best source option for its mapping
-                stop_coords = gtfs_data.get_stop_coords(route_stops, str(stop_id))
-                routes_at_stop = gtfs_data.get_routes_at_stop(route_stops, stop_id)
+                stop_coords = gtfs_data.get_stop_coords(str(stop_id))
+                routes_at_stop = gtfs_data.get_routes_at_stop(stop_id)
                 valid_stop_services = [stop_id for stop_id in valid_services if stop_id in routes_at_stop]
 
                 for service in valid_stop_services:
@@ -162,8 +161,8 @@ def connection_scan_lite(source_address, target_address, departure_time, departu
         for stop_id in near_target_stops:
             if stop_id in valid_target_stops:
                 # Filters the data for the possible target stops
-                stop_coords = gtfs_data.get_stop_coords(route_stops, str(stop_id))
-                routes_at_stop = gtfs_data.get_routes_at_stop(route_stops, stop_id)
+                stop_coords = gtfs_data.get_stop_coords(str(stop_id))
+                routes_at_stop = gtfs_data.get_routes_at_stop(stop_id)
                 valid_stop_services = [stop_id for stop_id in valid_services if stop_id in routes_at_stop]
 
         target_orientation = None
@@ -180,7 +179,7 @@ def connection_scan_lite(source_address, target_address, departure_time, departu
                 for stop_id in valid_target_stops:
                     # Calculates the travel time while taking the service
                     bus_time = gtfs_data.get_travel_time(trip_id, [best_option[1], stop_id])
-                    target_stop_routes = gtfs_data.get_routes_at_stop(route_stops, stop_id)
+                    target_stop_routes = gtfs_data.get_routes_at_stop(stop_id)
                     target_orientation = gtfs_data.get_bus_orientation(best_option[0], stop_id)
                     if service in target_stop_routes and bus_time > timedelta() and (best_travel_time is None or bus_time < best_travel_time):
                         # Checking the correct orientation
@@ -190,7 +189,7 @@ def connection_scan_lite(source_address, target_address, departure_time, departu
                             selected_stop = stop_id
 
                 # Gets the coordinates for the target stop
-                selected_stop_coords = gtfs_data.get_stop_coords(route_stops, selected_stop)
+                selected_stop_coords = gtfs_data.get_stop_coords(selected_stop)
                 # Separates the best travel time for the printing
                 minutes, seconds = gtfs_data.timedelta_separator(best_travel_time)
 
@@ -266,15 +265,13 @@ def connection_scan_lite(source_address, target_address, departure_time, departu
         return
 
 
-def csa_commands():
+def algorithm_commands():
     """
     Process the inputs given by the user to run the Connection Scan Algorithm.
     """
 
     # System's date and time
     now = datetime.now()
-    dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
-    #print("Fecha y hora actuales =", dt_string)
 
     # Date formatting
     today = date.today()
@@ -311,8 +308,6 @@ def csa_commands():
         if target_address.strip() != '':
             break
 
-    start = tm.time() # To calculate the execution time
-
     # You can change the final number (the margin) as you please. Bigger numbers increase the range for near stops
     # But bigger numbers imply bigger execution times
     best_route_map = connection_scan_lite(source_address, target_address, source_hour, source_date, 0.2)
@@ -323,10 +318,6 @@ def csa_commands():
         return
 
     # Displays the results and return
-    #display(best_route_map)
-    end = tm.time()
-    exec_time = round((end-start) / 60,3)
-    print("EXECUTION COMPLETED. TIME: {} MINUTES".format(exec_time))
     return best_route_map
 
-csa_commands()
+algorithm_commands()

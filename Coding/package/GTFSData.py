@@ -23,7 +23,6 @@ class GTFSData:
         Returns:
         pygtfs.Schedule: the scheduler object
         """
-        # Create a new schedule object using a GTFS file
         scheduler = pygtfs.Schedule(":memory:")
         pygtfs.append_feed(scheduler, GTFS_PATH)
         return scheduler
@@ -172,6 +171,18 @@ class GTFSData:
                             "arrival_times": []
                         }
 
+            # Add edges between every pair of consecutive stops in stop_id_map
+            #stop_list = list(stop_id_map.values())
+            #for i in range(len(stop_list) - 1):
+            #    for j in range(i + 1, len(stop_list)):
+            #        edge = (stop_list[i], stop_list[j])
+            #        if edge not in added_edges: # Check if the edge has already been added
+            #            e = graph.add_edge(*edge)
+            #            graph.edge_properties["weight"][e] = 1
+            #            graph.edge_properties["u"][e] = node_id_prop[stop_list[i]]
+            #            graph.edge_properties["v"][e] = node_id_prop[stop_list[j]]
+            #            added_edges.add(edge) # Add the edge to the set of added edges
+
         for route_id, graph in self.graphs.items():
             weight_prop = graph.new_edge_property("int")
 
@@ -179,8 +190,6 @@ class GTFSData:
                 weight_prop[e] = 1
 
             graph.edge_properties["weight"] = weight_prop
-            #graph.edge_properties["u"] = graph.new_edge_property("object")
-            #graph.edge_properties["v"] = graph.new_edge_property("object")
 
             data_dir = "gtfs_routes"
             if not os.path.exists(data_dir):
@@ -614,7 +623,7 @@ class GTFSData:
         tuple: A tuple containing a string representing the bus orientation ("round" or "return") and a list of datetime objects representing the arrival times.
         """
         # Read the frequencies.txt file
-        frequencies = pd.read_csv("stop_times.txt")
+        frequencies = pd.read_csv("frequencies.txt")
 
         # Filter the frequencies for the given route ID
         route_frequencies = frequencies[frequencies["trip_id"].str.startswith(route_id)]

@@ -5,7 +5,7 @@ from graph_tool.all import Graph
 from geopy.exc import GeocoderServiceError
 from geopy.geocoders import Nominatim
 
-class OSMGraph:
+class OSMGraph(Graph):
     def __init__(self, OSM_PATH='.'):
         self.node_coords = {}
         self.graph = self.create_osm_graph(OSM_PATH)
@@ -203,12 +203,12 @@ class OSMGraph:
 
         return nearest_node
 
-    def address_locator(self, loc):
+    def address_locator(self, address):
         """
         Finds the given address in the OSM graph.
 
         Parameters:
-        loc (str): The address to be located.
+        address (str): The address to be located.
 
         Returns:
         int: The ID of the nearest vertex in the graph.
@@ -219,7 +219,7 @@ class OSMGraph:
         geolocator = Nominatim(user_agent="ayatori")
         while True:
             try:
-                location = geolocator.geocode(loc)
+                location = geolocator.geocode(address)
                 break
             except GeocoderServiceError:
                 i = 0
@@ -232,8 +232,8 @@ class OSMGraph:
                     print(msg)
                     return
         if location is not None:
-            long, lati = location.longitude, location.latitude
-            nearest = self.find_nearest_node(self.graph, lati, long)
+            lat, lon = location.latitude, location.longitude
+            nearest = self.find_nearest_node(lat, lon)
             return nearest
         msg = "Error: Address couldn't be found."
         print(msg)
