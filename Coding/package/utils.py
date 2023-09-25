@@ -1,4 +1,6 @@
 from datetime import datetime, date, time, timedelta
+from collections import defaultdict
+import folium
 
 def find_route_nodes(osm_graph, gtfs_data, route_id, desired_orientation):
     # Checks the desired orientation validity
@@ -237,3 +239,26 @@ def find_best_option(osm_graph, gtfs_data, selected_path, departure_time, depart
 
     best_option_info = [best_option, initial_delta_time, best_option_times, initial_source_time, valid_target, best_option_orientation]
     return best_option_info
+
+def calculate_stop_density(osm_graph, gtfs_data):
+    # Get the stops and their coordinates from the OSMGraph
+    stops = osm_graph.get_nodes_by_tag("public_transport", "stop_position")
+    stop_coords = {stop: osm_graph.get_node_coordinates(stop) for stop in stops}
+
+    # Get the number of routes that stop at each stop
+    stop_routes = defaultdict(set)
+    for route_id, graph in gtfs_data.graphs.items():
+        for e in graph.edges():
+            u = graph.edge_properties["u"][e]
+            v = graph.edge_properties["v"][e]
+            stop_routes[u].add(route_id)
+            stop_routes[v].add(route_id)
+
+    # Create a map with markers for each stop, colored by the number of routes that stop there
+    m = folium.Map(location=[-33.45, -70.66], zoom_start=12)
+    for stop, coord in stop_coords.items():
+        num_routes = len(stop_routes[stop])
+        color = "red" if num_routes >= 10 else "orange" if num_routes >= 5 else "yellow" if num_routes >= 3 else "green" if num_routes >= 2 else "blue" if num_routes >= 1 else "purple"
+        folium.Marker(location=coord, icon=folium.Icon(color=color)).add_to(m)
+
+    return m

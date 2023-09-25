@@ -11,7 +11,9 @@ class GTFSData:
         self.graphs = {}
         self.route_stops = {}
         self.special_dates = []
+        self.stops = set()
         self.graphs, self.route_stops, self.special_dates = self.get_gtfs_data()
+        self.stops = self.get_stop_ids()
 
     def create_scheduler(self, GTFS_PATH):
         """
@@ -171,18 +173,6 @@ class GTFSData:
                             "arrival_times": []
                         }
 
-            # Add edges between every pair of consecutive stops in stop_id_map
-            #stop_list = list(stop_id_map.values())
-            #for i in range(len(stop_list) - 1):
-            #    for j in range(i + 1, len(stop_list)):
-            #        edge = (stop_list[i], stop_list[j])
-            #        if edge not in added_edges: # Check if the edge has already been added
-            #            e = graph.add_edge(*edge)
-            #            graph.edge_properties["weight"][e] = 1
-            #            graph.edge_properties["u"][e] = node_id_prop[stop_list[i]]
-            #            graph.edge_properties["v"][e] = node_id_prop[stop_list[j]]
-            #            added_edges.add(edge) # Add the edge to the set of added edges
-
         for route_id, graph in self.graphs.items():
             weight_prop = graph.new_edge_property("int")
 
@@ -200,6 +190,13 @@ class GTFSData:
         print("GTFS DATA RECEIVED SUCCESSFULLY")
 
         return self.graphs, self.route_stops, self.special_dates
+
+    def get_stop_ids(self):
+        stop_set = set()
+        for route_id, stops in self.route_stops.items():
+            for stop_id in stops:
+                stop_set.add(stop_id)
+        return stop_set
 
     def get_route_graph(self, route_id):
         """
@@ -268,6 +265,52 @@ class GTFSData:
         edges = [(graph.edge_properties["u"][e], graph.edge_properties["v"][e]) for e in graph.edges()]
 
         return edges
+
+    def map_route_stops(self, route_list, stops_flag, orientation_flag):
+        """
+        Create a map showing the stops visited on the round trip for the specified routes.
+
+        Parameters:
+        route_list (list): A list of route IDs.
+        stops_flag (bool): A flag indicating whether to display the stops on the map.
+
+        Returns:
+        folium.Map: A map object showing the stops and routes.
+        """
+        # Map the stops visited on the round trip
+        map = folium.Map(location=[-33.45, -70.65], zoom_start=12)
+
+        # List of valid colors
+        map_colors= ['red', 'orange', 'darkred', 'blue', 'lightblue', 'green', 'purple', 'lightred', 'beige',
+                     'darkblue', 'darkgreen', 'cadetblue', 'darkpurple', 'white', 'pink', 'lightgreen',
+                     'gray', 'black', 'lightgray']
+
+        color_id = 0
+        for route_id in route_list:
+            # Get the stops for the specified route
+            stops = self.route_stops.get(route_id, {})
+
+            # Filter the stops that are visited on the round trip
+            if orientation_flag:
+                trip_stops = [stop_info for stop_info in stops.values() if stop_info["orientation"] == "round"]
+            else:
+                trip_stops = [stop_info for stop_info in stops.values() if stop_info["orientation"] == "return"]
+
+            # Sort the stops by their sequence number in the trip
+            trip_stops = sorted(trip_stops, key=lambda x: x['sequence'])
+
+            folium.PolyLine(locations=[[stop_info["coordinates"][1], stop_info["coordinates"][0]] for stop_info in trip_stops],
+                            color=map_colors[color_id], weight=4).add_to(map)
+
+            if stops_flag:
+                for stop_info in trip_stops:
+                    folium.Marker(location=[stop_info["coordinates"][1], stop_info["coordinates"][0]], popup=stop_info["stop_id"],
+                                   icon=folium.Icon(color='lightgray', icon='minus')).add_to(map)
+
+
+            color_id+=1
+
+        return map
 
     def get_route_coordinates(self, route_id):
         round_trip_stops = []
@@ -618,6 +661,7 @@ class GTFSData:
         Parameters:
         route_id (str): A string representing the ID of the route.
         stop_id (str): A string representing the ID of the stop.
+        source_date (str): A string representing the date of the travel.
 
         Returns:
         tuple: A tuple containing a string representing the bus orientation ("round" or "return") and a list of datetime objects representing the arrival times.
