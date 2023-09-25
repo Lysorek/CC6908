@@ -1,22 +1,62 @@
-***
-## Ayatori: Creación de módulo base para programar algoritmos de planificación de rutas en Python usando GTFS.
+# ayatori
 
-Este repositorio contiene el código de Ayatori, un proyecto de implementación de un módulo de programación para crear
-herramientas de movilidad urbana, en Python. Este proyecto fue desarrollado como el Trabajo de Título de su autor, Felipe Leal (Lysorek), para optar al título de Ingeniero Civil en Computación en la Universidad de Chile.
+Python module that processes public transport information (in GTFS format) to create route generation algorithms.
+Currently in progress of reworking the repo.
 
-El módulo funciona cruzando la información cartográfica de la ciudad, proveniente del proyecto OpenStreetMap, con la
-información de cronogramas del transporte público disponible, en formato GTFS. A través de él, se pueden desarrollar
-diferentes visualizaciones de la información del transporte, como caracterizar qué tan densas son las paradas en relación
-a la cantidad de servicios que se detienen en cada una, como se aprecia en la siguiente figura.
+## Installation guide
 
-![alt text](Imagenes/mapa_paradas_full.jpg "Densidad de recorridos por parada en Santiago.")
+Please read [install.md](install.md) for details on how to set up this project.
 
-Para ejemplificar su uso, también se incluye una versión simplificada de [Connection Scan Algorithm (CSA)](arxiv.org/abs/1703.05997), algoritmo desarrollado para responder a consultas para sistemas de cronogramas de viajes, siendo capaz de optimizar el viaje entre dos puntos de una ciudad determinada, calculando la mejor ruta con la información del transporte público disponible. Un ejemplo de salida del algoritmo se aprecia en la siguiente figura.
+## Project Organization
 
-![alt text](Imagenes/result_example.PNG "Result example")
+    ├── LICENSE
+    ├── tasks.py           <- Invoke with commands like `notebook`.
+    ├── README.md          <- The top-level README for developers using this project.
+    ├── install.md         <- Detailed instructions to set up this project.
+    ├── data
+    │   ├── external       <- Data from third party sources.
+    │   ├── interim        <- Intermediate data that has been transformed.
+    │   ├── processed      <- The final, canonical data sets for modeling.
+    │   └── raw            <- The original, immutable data dump.
+    │
+    ├── models             <- Trained and serialized models, model predictions, or model summaries.
+    │
+    ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
+    │                         the creator's initials, and a short `-` delimited description, e.g.
+    │                         `1.0-jqp-initial-data-exploration`.
+    │
+    ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
+    │
+    ├── reports            <- Generated analysis as HTML, PDF, LaTeX, etc.
+    │   └── figures         <- Generated graphics and figures to be used in reporting.
+    │
+    ├── environment.yml    <- The requirements file for reproducing the analysis environment.
+    │
+    ├── .here              <- File that will stop the search if none of the other criteria
+    │                         apply when searching head of project.
+    │
+    ├── setup.py           <- Makes project pip installable (pip install -e .)
+    │                         so ayatori can be imported.
+    │
+    └── ayatori               <- Source code for use in this project.
+        ├── __init__.py    <- Makes ayatori a Python module.
+        │
+        ├── data           <- Scripts to download or generate data.
+        │   └── make_dataset.py
+        │
+        ├── features       <- Scripts to turn raw data into features for modeling.
+        │   └── build_features.py
+        │
+        ├── models         <- Scripts to train models and then use trained models to make
+        │   │                 predictions.
+        │   ├── predict_model.py
+        │   └── train_model.py
+        │
+        ├── utils          <- Scripts to help with common tasks.
+            └── paths.py   <- Helper functions to relative file referencing across project.
+        │
+        └── visualization  <- Scripts to create exploratory and results oriented visualizations.
+            └── visualize.py
 
-Este repositorio incluye un archivo Jupyter Notebook llamado "algorithm_tester.ipynb" que puede usarse para testear la implementación y analizar la arquitectura del algoritmo.
-
-## Requirements
-
-Esta implementación utiliza la librería [graph-tool](https://graph-tool.skewed.de) para almacenar los datos en grafos. Dado que esta librería no está disponible en Windows, se recomienda instalar el [Windows Subsystem for Linux](https://docs.microsoft.com/es-es/windows/wsl/install-win10). La implementación fue programada usando el sistema operativo [Ubuntu 20.04](https://ubuntu.com/blog/tag/20-04-lts). Además de esto, otras librerías utilizadas son folium y Nominatim.
+---
+Project based on the [cookiecutter conda data science project template](https://github.com/jvelezmagic/cookiecutter-conda-data-science).
